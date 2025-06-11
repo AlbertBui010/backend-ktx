@@ -73,7 +73,7 @@ export const ENUM_GIUONG_TRANG_THAI = {
   AVAILABLE: "available", // Giường trống, sẵn sàng để phân bổ cho sinh viên.
   OCCUPIED: "occupied", // Giường đang có sinh viên ở.
   MAINTENANCE: "maintenance", // Giường đang trong quá trình bảo trì, không thể sử dụng.
-  UNAVAILABLE: "unavailable", // Giường không khả dụng (ví dụ: hư hỏng, đang chờ sửa chữa nghiêm trọng).
+  RESERVED: "reserved", // Giường đã được đặt trước
 };
 
 /**
@@ -102,83 +102,50 @@ export const ENUM_NOI_QUY_TRANG_THAI = {
 export const ENUM_PHAN_BO_PHONG_TRANG_THAI = {
   ACTIVE: "active", // Sinh viên đang ở trong phòng theo phân bổ này.
   EXPIRED: "expired", // Phân bổ đã hết hạn.
-  TERMINATED: "terminated", // Phân bổ đã kết thúc sớm (ví dụ: sinh viên chuyển đi).
+  TERMINATED: "terminated", // Phân bổ đã kết thúc sớm sớm (ví dụ: sinh viên chuyển đi).
   PENDING: "pending", // Chờ sinh viên vào ở theo phân bổ.
   CANCELLED: "cancelled", // Đã hủy phân bổ.
 };
 
 /**
- * @enum {string} ENUM_PHIEU_DANG_KY_KTX_TRANG_THAI - Trạng thái của một phiếu đăng ký KTX.
+ * @enum {string} ENUM_PHIEU_DANG_KY_TRANG_THAI - Trạng thái phiếu đăng ký KTX
  */
-export const ENUM_PHIEU_DANG_KY_KTX_TRANG_THAI = {
-  PENDING: "pending", // Phiếu đang chờ được xử lý/duyệt.
-  APPROVED: "approved", // Phiếu đã được duyệt.
-  REJECTED: "rejected", // Phiếu đã bị từ chối.
-  CANCELLED: "cancelled", // Phiếu đã bị hủy bởi sinh viên.
+export const ENUM_PHIEU_DANG_KY_TRANG_THAI = {
+  PENDING: "pending", // Chờ duyệt
+  APPROVED: "approved", // Đã được duyệt
+  REJECTED: "rejected", // Bị từ chối
+  CANCELLED: "cancelled", // Đã hủy
 };
 
 /**
- * @enum {string} ENUM_PHONG_TRANG_THAI - Trạng thái của một phòng trong KTX.
+ * @enum {string} ENUM_PHONG_TRANG_THAI - Trạng thái của phòng
  */
 export const ENUM_PHONG_TRANG_THAI = {
-  AVAILABLE: "available", // Phòng trống hoàn toàn, sẵn sàng cho sinh viên vào.
-  PARTIALLY_OCCUPIED: "partially_occupied", // Phòng có sinh viên nhưng vẫn còn giường trống.
-  FULL: "full", // Phòng đã đầy giường.
-  MAINTENANCE: "maintenance", // Phòng đang trong quá trình bảo trì, không thể sử dụng.
-  UNAVAILABLE: "unavailable", // Phòng không khả dụng (ví dụ: bị niêm phong, hư hỏng nặng).
+  AVAILABLE: "available", // Còn trống, có thể phân bổ
+  OCCUPIED: "occupied", // Đã có người ở
+  MAINTENANCE: "maintenance", // Đang bảo trì
+  RESERVED: "reserved", // Đã được đặt trước
 };
 
 /**
- * @enum {string} ENUM_SINH_VIEN_TRANG_THAI - Trạng thái của sinh viên liên quan đến KTX.
+ * @enum {string} ENUM_PHONG_GIOI_TINH - Giới tính cho phép ở phòng
+ */
+export const ENUM_PHONG_GIOI_TINH = {
+  NAM: "Nam",
+  NU: "Nữ",
+  HOP_NAM: "Hỗn hợp", // Cho phép cả nam và nữ
+};
+
+/**
+ * @enum {string} ENUM_SINH_VIEN_TRANG_THAI - Trạng thái của sinh viên trong hệ thống KTX
  */
 export const ENUM_SINH_VIEN_TRANG_THAI = {
-  ACTIVE_RESIDENT: "active_resident", // Sinh viên đang là cư dân KTX.
-  FORMER_RESIDENT: "former_resident", // Sinh viên đã từng là cư dân KTX (đã chuyển đi).
-  APPLICANT: "applicant", // Sinh viên đang là ứng viên đăng ký KTX.
-  SUSPENDED: "suspended", // Sinh viên bị đình chỉ (ví dụ: do vi phạm nội quy KTX).
-  BANNED: "banned", // Sinh viên bị cấm túc khỏi KTX.
-  INACTIVE: "inactive", // Sinh viên không còn liên quan đến KTX (ví dụ: đã tốt nghiệp và không ở KTX).
-};
-
-/**
- * @enum {string} ENUM_TAI_LIEU_DINH_KEM_TRANG_THAI - Trạng thái của một tài liệu đính kèm.
- */
-export const ENUM_TAI_LIEU_DINH_KEM_TRANG_THAI = {
-  ACTIVE: "active", // Tài liệu đang được sử dụng hoặc hiển thị.
-  ARCHIVED: "archived", // Tài liệu đã được lưu trữ (không còn sử dụng chính).
-  DELETED: "deleted", // Tài liệu đã bị xóa (soft delete).
-};
-
-/**
- * @enum {string} ENUM_PHONG_GENDER - Giới tính phù hợp cho phòng.
- * Dùng cho trường 'gender' trong bảng `phong`.
- */
-export const ENUM_PHONG_GENDER = {
-  NAM: "Nam", // Phòng chỉ dành cho nam sinh viên.
-  NU: "Nữ", // Phòng chỉ dành cho nữ sinh viên.
-  UNISEX: "Unisex", // Phòng có thể dành cho cả nam và nữ (ít phổ biến trong KTX, nhưng có thể có).
-};
-
-/**
- * @enum {string} ENUM_TAI_LIEU_DINH_KEM_TYPE - Các loại tài liệu đính kèm.
- * Dùng cho trường 'type' trong bảng `tai_lieu_dinh_kem`.
- */
-export const ENUM_TAI_LIEU_DINH_KEM_TYPE = {
-  STUDENT_PROFILE: "student_profile", // Tài liệu liên quan đến hồ sơ sinh viên.
-  REGISTRATION_FORM: "registration_form", // Phiếu đăng ký KTX.
-  IDENTIFICATION: "identification", // Giấy tờ tùy thân (CMND/CCCD/Hộ chiếu).
-  HEALTH_CERTIFICATE: "health_certificate", // Giấy khám sức khỏe.
-  SCHOOL_TRANSCRIPT: "school_transcript", // Bảng điểm/Kết quả học tập.
-  OTHER: "other", // Các loại tài liệu khác không thuộc danh mục trên.
-};
-
-/**
- * @enum {string} ENUM_NOI_QUY_TYPE - Các loại nội quy.
- * Dùng cho trường 'type' trong bảng `noi_quy`.
- */
-export const ENUM_NOI_QUY_TYPE = {
-  CHUNG_KTX: "chung_ktx", // Nội quy chung áp dụng cho toàn bộ KTX.
-  RIENG_PHONG: "rieng_phong", // Nội quy đặc thù áp dụng cho từng phòng hoặc loại phòng.
+  ACTIVE_RESIDENT: "active_resident", // Đang ở KTX
+  FORMER_RESIDENT: "former_resident", // Đã từng ở KTX
+  APPLICANT: "applicant", // Đăng ký chờ duyệt
+  SUSPENDED: "suspended", // Bị tạm khóa
+  BANNED: "banned", // Bị cấm vĩnh viễn
+  INACTIVE: "inactive", // Không hoạt động
 };
 
 // --- Date Formats ---
@@ -238,8 +205,11 @@ export const COLUMNS = {
     DON_GIA_DIEN: "don_gia_dien",
   },
   GIUONG: {
+    TEN_GIUONG: "ten_giuong",
     ID_PHONG: "id_phong",
-    TEN: "ten",
+    TRANG_THAI: "trang_thai",
+    ID_SINH_VIEN: "id_sinh_vien",
+    GHI_CHU: "ghi_chu",
   },
   HD_PHAN_BO_PHONG: {
     ID_PHAN_BO_PHONG: "id_phan_bo_phong",
@@ -256,9 +226,11 @@ export const COLUMNS = {
     THANH_TIEN: "thanh_tien",
   },
   LOAI_PHONG: {
-    TEN: "ten",
-    GIA: "gia",
+    TEN_LOAI: "ten_loai",
+    SO_GIUONG: "so_giuong",
+    DIEN_TICH: "dien_tich",
     MO_TA: "mo_ta",
+    GIA_THUE: "gia_thue",
   },
   NHAN_VIEN: {
     MA_NV: "ma_nv",
@@ -289,28 +261,33 @@ export const COLUMNS = {
     NGAY_KET_THUC: "ngay_ket_thuc",
   },
   PHIEU_DANG_KY_KTX: {
-    ID_SV: "id_sv",
-    NAM_HOC: "nam_hoc",
+    ID_SINH_VIEN: "id_sinh_vien",
     NGAY_DANG_KY: "ngay_dang_ky",
-    GHI_CHU: "ghi_chu",
+    NGAY_BAT_DAU: "ngay_bat_dau",
+    NGAY_KET_THUC: "ngay_ket_thuc",
     TRANG_THAI: "trang_thai",
+    LY_DO_DANG_KY: "ly_do_dang_ky",
+    GHI_CHU: "ghi_chu",
+    NGUOI_DUYET: "nguoi_duyet",
+    NGAY_DUYET: "ngay_duyet",
+    LY_DO_TU_CHOI: "ly_do_tu_choi",
   },
   PHONG: {
+    TEN_PHONG: "ten_phong",
     ID_LOAI_PHONG: "id_loai_phong",
-    TEN: "ten",
-    SL_MAX: "sl_max",
-    SL_HIEN_TAI: "sl_hien_tai",
+    SO_TANG: "so_tang",
     TRANG_THAI: "trang_thai",
-    MO_TA: "mo_ta",
-    GENDER: "gender",
+    GIOI_TINH: "gioi_tinh",
+    GHI_CHU: "ghi_chu",
   },
   PHU_HUYNH: {
-    ID_SV: "id_sv",
-    HO_TEN: "ho_ten",
-    NAM_SINH: "nam_sinh",
-    NGHE_NGHIEP: "nghe_nghiep",
+    ID_SINH_VIEN: "id_sinh_vien",
+    TEN: "ten",
+    QUAN_HE: "quan_he",
     SDT: "sdt",
-    MOI_QUAN_HE: "moi_quan_he",
+    EMAIL: "email",
+    NGHE_NGHIEP: "nghe_nghiep",
+    DIA_CHI: "dia_chi",
   },
   SINH_VIEN: {
     MSSV: "mssv",

@@ -4,8 +4,12 @@ import cors from "cors";
 import morgan from "morgan";
 import healthRoutes from "./routes/health.routes.js";
 import authRoutes from "./routes/auth.routes.js";
+import roomRoutes from "./routes/room.routes.js";
+import studentRoutes from "./routes/student.routes.js";
+import registrationRoutes from "./routes/registration.routes.js";
 import { connectDatabase } from "./config/database.config.js";
 import { connectRedis } from "./config/redis.config.js";
+import { emailUtils } from "./utils/email.util.js";
 
 dotenv.config();
 
@@ -17,6 +21,10 @@ const initializeConnections = async () => {
   try {
     await connectDatabase();
     await connectRedis();
+
+    // Test email connection
+    await emailUtils.testConnection();
+
     console.log("✅ All connections initialized successfully");
   } catch (error) {
     console.error("❌ Failed to initialize connections:", error);
@@ -38,6 +46,9 @@ app.use(morgan("dev"));
 // Routes
 app.use("/api", healthRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/rooms", roomRoutes);
+app.use("/api/students", studentRoutes);
+app.use("/api/registrations", registrationRoutes);
 
 // Global error handler
 app.use((err, req, res, next) => {
