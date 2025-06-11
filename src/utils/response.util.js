@@ -11,12 +11,7 @@ export const successResponse = (res, data, meta = null, statusCode = 200) => {
   return res.status(statusCode).json(response);
 };
 
-export const errorResponse = (
-  res,
-  statusCode = 500,
-  message = "Internal Server Error",
-  details = null
-) => {
+export const errorResponse = (res, statusCode = 500, message = "Internal Server Error", details = null) => {
   const response = {
     success: false,
     error: {

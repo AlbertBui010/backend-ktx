@@ -1,15 +1,54 @@
-version: '3.8'
+version: "3.8"
 
 services:
   postgres:
     image: postgres:15
-    container_name: container_name
+    container_name: postgres-ktx
     restart: unless-stopped
     environment:
-      POSTGRES_USER: POSTGRES_USER
-      POSTGRES_PASSWORD: POSTGRES_PASSWORD
-      POSTGRES_DB: POSTGRES_DB
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secretpassword}
+      POSTGRES_DB: ${POSTGRES_DB:-ktx}
     ports:
       - "5432:5432"
     volumes:
-      - /path/to/your/data:/var/lib/postgresql/data
+      - ./volumes/postgres:/var/lib/postgresql/data
+
+  redis:
+    image: bitnami/redis:7.0.11
+    container_name: redis-ktx
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-secretpassword}
+    volumes:
+      - ./volumes/redis:/bitnami/redis/data
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    platform: linux/amd64
+    container_name: redis-commander
+    restart: unless-stopped
+    environment:
+      - REDIS_HOST=redis-ktx
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-secretpassword}
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+
+  minio:
+    image: minio/minio:latest
+    container_name: minio-ktx
+    restart: unless-stopped
+    ports:
+      - "9000:9000" # S3 API
+      - "9001:9001" # Web Console
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    command: server --console-address ":9001" /data
+    volumes:
+      - ./volumes/minio:/data
