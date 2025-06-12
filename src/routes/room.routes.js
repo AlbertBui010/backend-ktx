@@ -29,7 +29,16 @@ const createRoomValidation = [
   body("gioi_tinh").optional().isIn(["Nam", "Nữ", "Hỗn hợp"]).withMessage("Gender must be Nam, Nữ, or Hỗn hợp"),
 ];
 
-// Room Types routes
+const createBedValidation = [
+  body("ten_giuong")
+    .notEmpty()
+    .withMessage("Bed name is required")
+    .isLength({ min: 1, max: 20 })
+    .withMessage("Bed name must be between 1 and 20 characters"),
+  body("id_phong").isInt({ min: 1 }).withMessage("Valid room ID is required"),
+];
+
+// ======== ROOM TYPES routes ========
 router.get("/room-types", authenticateToken, roomController.getRoomTypes);
 router.post(
   "/room-types",
@@ -51,8 +60,11 @@ router.put(
 // Delete room type (Staff+ only)
 router.delete("/room-types/:id", authenticateToken, requireStaff, roomController.deleteRoomType);
 
-// Rooms routes
+// ======== ROOMS routes ========
 router.get("/rooms", authenticateToken, roomController.getRooms);
+// Available rooms
+router.get("/rooms/available", authenticateToken, roomController.getAvailableRooms);
+// Creaete room (Staff+ only)
 router.post(
   "/rooms",
   authenticateToken,
@@ -61,11 +73,40 @@ router.post(
   validationMiddleware,
   roomController.createRoom,
 );
+// Update room (Staff+ only)
+router.put(
+  "/rooms/:id",
+  authenticateToken,
+  requireStaff,
+  createRoomValidation,
+  validationMiddleware,
+  roomController.updateRoom,
+);
+// Delete room (Staff+ only)
+router.delete("/rooms/:id", authenticateToken, requireStaff, roomController.deleteRoom);
 
-// Beds routes
+// ======== BEDS routes ========
 router.get("/rooms/:roomId/beds", authenticateToken, roomController.getBedsByRoom);
+// Create bed (Staff+ only)
+router.post(
+  "/rooms/:roomId/beds",
+  authenticateToken,
+  requireStaff,
+  createBedValidation,
+  validationMiddleware,
+  roomController.createBed,
+);
+// Update bed (Staff+ only)
+router.put(
+  "/beds/:id",
+  authenticateToken,
+  requireStaff,
+  createBedValidation,
+  validationMiddleware,
+  roomController.updateBed,
+);
 
-// Available rooms
-router.get("/rooms/available", authenticateToken, roomController.getAvailableRooms);
+// Delete bed (Staff+ only)
+router.delete("/beds/:id", authenticateToken, requireStaff, roomController.deleteBed);
 
 export default router;
