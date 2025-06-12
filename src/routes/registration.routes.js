@@ -37,7 +37,7 @@ const idValidation = [param("id").isInt({ min: 1 }).withMessage("Valid registrat
 // Public/Student routes (Students can create their own registrations)
 router.post(
   "/",
-  authenticateToken,
+  //   authenticateToken,
   createRegistrationValidation,
   validationMiddleware,
   registrationController.createRegistration,

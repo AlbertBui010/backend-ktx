@@ -252,6 +252,15 @@ export const authController = {
         }
       }
 
+      if (cmnd) {
+        const existingCMND = await SinhVien.findOne({
+          where: { [COLUMNS.SINH_VIEN.CMND]: cmnd },
+        });
+        if (existingCMND) {
+          return errorResponse(res, 409, "CMND already exists");
+        }
+      }
+
       // Create new student (password will be set up later)
       const newSinhVien = await SinhVien.create({
         [COLUMNS.SINH_VIEN.MSSV]: mssv,

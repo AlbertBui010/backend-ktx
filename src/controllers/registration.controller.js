@@ -75,7 +75,7 @@ export const registrationController = {
         [COLUMNS.PHIEU_DANG_KY_KTX.NGAY_KET_THUC]: ngay_ket_thuc,
         [COLUMNS.PHIEU_DANG_KY_KTX.LY_DO_DANG_KY]: ly_do_dang_ky,
         [COLUMNS.PHIEU_DANG_KY_KTX.GHI_CHU]: ghi_chu,
-        [COLUMNS.COMMON.NGUOI_TAO]: req.user?.id || id_sinh_vien,
+        [COLUMNS.COMMON.NGUOI_TAO]: req.user?.id,
       });
 
       return successResponse(
@@ -191,6 +191,13 @@ export const registrationController = {
                 ],
               },
             ],
+            attributes: {
+              exclude: [
+                COLUMNS.SINH_VIEN.MAT_KHAU,
+                COLUMNS.SINH_VIEN.PASSWORD_SETUP_TOKEN,
+                COLUMNS.SINH_VIEN.PASSWORD_SETUP_EXPIRES,
+              ],
+            },
           },
           {
             model: NhanVien,
@@ -201,6 +208,7 @@ export const registrationController = {
             model: NhanVien,
             as: "Creator",
             required: false,
+            attributes: { exclude: [COLUMNS.NHAN_VIEN.MAT_KHAU] },
           },
         ],
       });
@@ -324,6 +332,19 @@ export const registrationController = {
           // Send email with setup link
           if (registration.Student[COLUMNS.SINH_VIEN.EMAIL]) {
             try {
+              const roomInfo = {
+                room: bed.Room?.[COLUMNS.PHONG.TEN_PHONG],
+                bed: bed[COLUMNS.GIUONG.TEN_GIUONG],
+                roomType: bed.Room?.RoomType?.[COLUMNS.LOAI_PHONG.TEN_LOAI],
+                floor: bed.Room?.[COLUMNS.PHONG.SO_TANG],
+              };
+
+              await emailUtils.sendWelcomeEmail(
+                registration.Student[COLUMNS.SINH_VIEN.EMAIL],
+                registration.Student[COLUMNS.SINH_VIEN.TEN],
+                roomInfo,
+              );
+
               await emailUtils.sendPasswordSetupEmail(
                 registration.Student[COLUMNS.SINH_VIEN.EMAIL],
                 registration.Student[COLUMNS.SINH_VIEN.TEN],

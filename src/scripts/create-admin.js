@@ -15,7 +15,7 @@ const createAdminUser = async () => {
     // Check if admin already exists
     const existingAdmin = await NhanVien.findOne({
       where: {
-        [COLUMNS.NHAN_VIEN.MA_NV]: "ADMIN001",
+        [COLUMNS.NHAN_VIEN.MA_NV]: "ADMIN002",
         [COLUMNS.COMMON.DANG_HIEN]: true,
       },
     });
@@ -26,15 +26,15 @@ const createAdminUser = async () => {
     }
 
     // Create admin user
-    const adminPassword = "Admin@123";
+    const adminPassword = "quy123";
     const hashedPassword = await passwordUtils.hashPassword(adminPassword);
 
     const adminUser = await NhanVien.create({
-      [COLUMNS.NHAN_VIEN.MA_NV]: "ADMIN001",
+      [COLUMNS.NHAN_VIEN.MA_NV]: "ADMIN002",
       [COLUMNS.NHAN_VIEN.TEN]: "System Administrator",
       [COLUMNS.NHAN_VIEN.MAT_KHAU]: hashedPassword,
       [COLUMNS.NHAN_VIEN.ROLE]: ENUM_NHAN_VIEN_ROLE.ADMIN,
-      [COLUMNS.NHAN_VIEN.EMAIL]: "admin@ktx.edu.vn",
+      [COLUMNS.NHAN_VIEN.EMAIL]: "quy.admin@gmail.com",
       [COLUMNS.NHAN_VIEN.PHONG_BAN]: "IT Department",
       [COLUMNS.NHAN_VIEN.TRANG_THAI]: ENUM_NHAN_VIEN_TRANG_THAI.ACTIVE,
       [COLUMNS.NHAN_VIEN.NGAY_VAO_LAM]: new Date(),

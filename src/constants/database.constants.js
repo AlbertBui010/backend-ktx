@@ -329,3 +329,5 @@ export const COLUMNS = {
     TRANG_THAI: "trang_thai",
   },
 };
+
+export const NGUOI_TAO_DEFAULT = 0;

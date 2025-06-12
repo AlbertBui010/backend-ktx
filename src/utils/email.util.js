@@ -87,7 +87,6 @@ export const emailUtils = {
             <ol>
               <li>Hoàn thành thủ tục nhập học</li>
               <li>Đóng phí ký túc xá theo quy định</li>
-              <li>Tham gia họp phụ huynh/sinh viên (nếu có)</li>
               <li>Tuân thủ nội quy ký túc xá</li>
             </ol>
             

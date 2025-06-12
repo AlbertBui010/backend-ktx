@@ -95,8 +95,8 @@ router.post(
 );
 router.post(
   "/register/student",
-  authenticateToken,
-  requireStaff,
+  // authenticateToken,
+  // requireStaff,
   registerStudentValidation,
   validationMiddleware,
   authController.registerStudent,

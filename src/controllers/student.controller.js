@@ -3,6 +3,8 @@ import { successResponse, errorResponse } from "../utils/response.util.js";
 import { passwordUtils } from "../utils/password.util.js";
 import { COLUMNS, ENUM_SINH_VIEN_TRANG_THAI } from "../constants/database.constants.js";
 import sequelize from "../config/database.config.js";
+import { Op } from "sequelize";
+import { emailUtils } from "../utils/email.util.js";
 
 export const studentController = {
   // Get all students
@@ -16,15 +18,15 @@ export const studentController = {
       };
 
       if (search) {
-        whereClause[sequelize.Op.or] = [
+        whereClause[Op.or] = [
           {
             [COLUMNS.SINH_VIEN.TEN]: {
-              [sequelize.Op.iLike]: `%${search}%`,
+              [Op.iLike]: `%${search}%`,
             },
           },
           {
             [COLUMNS.SINH_VIEN.MSSV]: {
-              [sequelize.Op.iLike]: `%${search}%`,
+              [Op.iLike]: `%${search}%`,
             },
           },
         ];
@@ -257,7 +259,7 @@ export const studentController = {
         where: {
           [COLUMNS.COMMON.DANG_HIEN]: true,
           [COLUMNS.SINH_VIEN.TRANG_THAI]: {
-            [sequelize.Op.in]: [ENUM_SINH_VIEN_TRANG_THAI.APPLICANT],
+            [Op.in]: [ENUM_SINH_VIEN_TRANG_THAI.APPLICANT],
           },
         },
         include: [
@@ -309,7 +311,7 @@ export const studentController = {
         where: {
           [COLUMNS.SINH_VIEN.PASSWORD_SETUP_TOKEN]: token,
           [COLUMNS.SINH_VIEN.PASSWORD_SETUP_EXPIRES]: {
-            [sequelize.Op.gt]: new Date(),
+            [Op.gt]: new Date(),
           },
         },
       });
@@ -328,6 +330,8 @@ export const studentController = {
         [COLUMNS.SINH_VIEN.PASSWORD_SETUP_EXPIRES]: null,
         [COLUMNS.SINH_VIEN.TRANG_THAI]: ENUM_SINH_VIEN_TRANG_THAI.ACTIVE_RESIDENT,
       });
+
+      //   await emailUtils.sendWelcomeEmail(student.email, student.ten, )
 
       return successResponse(res, {
         message: "Password setup completed successfully. You can now login.",
