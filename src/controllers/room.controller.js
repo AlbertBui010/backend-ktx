@@ -325,4 +325,55 @@ export const roomController = {
       return errorResponse(res, 500, "Failed to get available rooms", error.message);
     }
   },
+  // Update room type (Staff+ only)
+  updateRoomType: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { ten_loai, so_giuong, dien_tich, mo_ta, gia_thue } = req.body;
+
+      const roomType = await LoaiPhong.findByPk(id);
+      if (!roomType) {
+        return errorResponse(res, 404, "Room type not found");
+      }
+
+      // Update fields
+      roomType[COLUMNS.LOAI_PHONG.TEN_LOAI] = ten_loai || roomType[COLUMNS.LOAI_PHONG.TEN_LOAI];
+      roomType[COLUMNS.LOAI_PHONG.SO_GIUONG] = so_giuong || roomType[COLUMNS.LOAI_PHONG.SO_GIUONG];
+      roomType[COLUMNS.LOAI_PHONG.DIEN_TICH] = dien_tich || roomType[COLUMNS.LOAI_PHONG.DIEN_TICH];
+      roomType[COLUMNS.LOAI_PHONG.MO_TA] = mo_ta || roomType[COLUMNS.LOAI_PHONG.MO_TA];
+      roomType[COLUMNS.LOAI_PHONG.GIA_THUE] = gia_thue || roomType[COLUMNS.LOAI_PHONG.GIA_THUE];
+      roomType[COLUMNS.COMMON.NGUOI_CAP_NHAT] = req.user.id;
+
+      await roomType.save();
+
+      return successResponse(res, {
+        roomType: roomType.toJSON(),
+        message: "Room type updated successfully",
+      });
+    } catch (error) {
+      return errorResponse(res, 500, "Failed to update room type", error.message);
+    }
+  },
+
+  // Delete room type (Staff+ only)
+  deleteRoomType: async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      const roomType = await LoaiPhong.findByPk(id);
+      if (!roomType) {
+        return errorResponse(res, 404, "Room type not found");
+      }
+
+      // Soft delete the room type
+      roomType[COLUMNS.COMMON.DANG_HIEN] = false;
+      await roomType.save();
+
+      return successResponse(res, {
+        message: "Room type deleted successfully",
+      });
+    } catch (error) {
+      return errorResponse(res, 500, "Failed to delete room type", error.message);
+    }
+  },
 };

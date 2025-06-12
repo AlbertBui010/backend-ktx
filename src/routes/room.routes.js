@@ -39,6 +39,17 @@ router.post(
   validationMiddleware,
   roomController.createRoomType,
 );
+// Update room type (Staff+ only)
+router.put(
+  "/room-types/:id",
+  authenticateToken,
+  requireStaff,
+  createRoomTypeValidation,
+  validationMiddleware,
+  roomController.updateRoomType,
+);
+// Delete room type (Staff+ only)
+router.delete("/room-types/:id", authenticateToken, requireStaff, roomController.deleteRoomType);
 
 // Rooms routes
 router.get("/rooms", authenticateToken, roomController.getRooms);
