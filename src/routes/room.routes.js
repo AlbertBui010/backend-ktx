@@ -35,7 +35,6 @@ const createBedValidation = [
     .withMessage("Bed name is required")
     .isLength({ min: 1, max: 20 })
     .withMessage("Bed name must be between 1 and 20 characters"),
-  body("id_phong").isInt({ min: 1 }).withMessage("Valid room ID is required"),
 ];
 
 // ======== ROOM TYPES routes ========
@@ -86,6 +85,7 @@ router.put(
 router.delete("/rooms/:id", authenticateToken, requireStaff, roomController.deleteRoom);
 
 // ======== BEDS routes ========
+// Get all beds by room ID
 router.get("/rooms/:roomId/beds", authenticateToken, roomController.getBedsByRoom);
 // Create bed (Staff+ only)
 router.post(
@@ -105,7 +105,6 @@ router.put(
   validationMiddleware,
   roomController.updateBed,
 );
-
 // Delete bed (Staff+ only)
 router.delete("/beds/:id", authenticateToken, requireStaff, roomController.deleteBed);
 
