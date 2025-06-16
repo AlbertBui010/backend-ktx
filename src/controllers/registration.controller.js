@@ -18,8 +18,8 @@ export const registrationController = {
     try {
       const { id_sinh_vien, ngay_bat_dau, ngay_ket_thuc, ly_do_dang_ky, ghi_chu } = req.body;
 
-      if (!id_sinh_vien || !ngay_bat_dau || !ngay_ket_thuc) {
-        return errorResponse(res, 400, "Student ID, start date, and end date are required");
+      if (!id_sinh_vien || !ngay_bat_dau) {
+        return errorResponse(res, 400, "Student ID and start date are required");
       }
 
       // Check if student exists
@@ -55,24 +55,28 @@ export const registrationController = {
         return errorResponse(res, 409, "Student already has accommodation");
       }
 
-      // Validate dates
+      // Validate start date
       const startDate = new Date(ngay_bat_dau);
-      const endDate = new Date(ngay_ket_thuc);
       const today = new Date();
+      today.setHours(0, 0, 0, 0);
 
       if (startDate <= today) {
         return errorResponse(res, 400, "Start date must be in the future");
       }
 
-      if (endDate <= startDate) {
-        return errorResponse(res, 400, "End date must be after start date");
+      // Validate end date if provided
+      if (ngay_ket_thuc) {
+        const endDate = new Date(ngay_ket_thuc);
+        if (endDate <= startDate) {
+          return errorResponse(res, 400, "End date must be after start date");
+        }
       }
 
       // Create registration
       const newRegistration = await PhieuDangKy.create({
         [COLUMNS.PHIEU_DANG_KY_KTX.ID_SINH_VIEN]: id_sinh_vien,
         [COLUMNS.PHIEU_DANG_KY_KTX.NGAY_BAT_DAU]: ngay_bat_dau,
-        [COLUMNS.PHIEU_DANG_KY_KTX.NGAY_KET_THUC]: ngay_ket_thuc,
+        [COLUMNS.PHIEU_DANG_KY_KTX.NGAY_KET_THUC]: ngay_ket_thuc || null, // Cho phép null
         [COLUMNS.PHIEU_DANG_KY_KTX.LY_DO_DANG_KY]: ly_do_dang_ky,
         [COLUMNS.PHIEU_DANG_KY_KTX.GHI_CHU]: ghi_chu,
         [COLUMNS.COMMON.NGUOI_TAO]: req.user?.id,

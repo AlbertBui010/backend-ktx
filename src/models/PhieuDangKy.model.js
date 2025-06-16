@@ -29,7 +29,7 @@ const PhieuDangKy = sequelize.define(
     },
     [COLUMNS.PHIEU_DANG_KY_KTX.NGAY_KET_THUC]: {
       type: DataTypes.DATEONLY,
-      allowNull: false,
+      allowNull: true,
     },
     [COLUMNS.PHIEU_DANG_KY_KTX.TRANG_THAI]: {
       type: DataTypes.ENUM(
