@@ -1,7 +1,6 @@
 import { PhieuDangKy, SinhVien, Giuong, Phong, LoaiPhong, NhanVien } from "../models/index.js";
 import { successResponse, errorResponse } from "../utils/response.util.js";
 import { emailUtils } from "../utils/email.util.js";
-import { passwordUtils } from "../utils/password.util.js";
 import {
   COLUMNS,
   ENUM_PHIEU_DANG_KY_TRANG_THAI,
@@ -60,16 +59,16 @@ export const registrationController = {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
+      // Ngày bắt đầu không ở quá khứ và không quá 20 ngày kể từ ngày đăng ký hiện tại
       if (startDate <= today) {
         return errorResponse(res, 400, "Start date must be in the future");
       }
 
-      // Validate end date if provided
-      if (ngay_ket_thuc) {
-        const endDate = new Date(ngay_ket_thuc);
-        if (endDate <= startDate) {
-          return errorResponse(res, 400, "End date must be after start date");
-        }
+      const maxStartDate = new Date(today);
+      maxStartDate.setDate(today.getDate() + 20);
+
+      if (startDate > maxStartDate) {
+        return errorResponse(res, 400, "Start date cannot be more than 20 days from today");
       }
 
       // Create registration
@@ -381,40 +380,65 @@ export const registrationController = {
 
   // Reject registration
   rejectRegistration: async (req, res) => {
+    const transaction = await sequelize.transaction();
+
     try {
       const { id } = req.params;
       const { ly_do_tu_choi } = req.body;
 
-      if (!ly_do_tu_choi) {
-        return errorResponse(res, 400, "Rejection reason is required");
-      }
+      // Tìm phiếu đăng ký và thông tin sinh viên
+      const registration = await PhieuDangKy.findOne({
+        where: { [COLUMNS.COMMON.ID]: id },
+        include: [
+          {
+            model: SinhVien,
+            as: "Student",
+          },
+        ],
+        transaction,
+      });
 
-      const registration = await PhieuDangKy.findByPk(id);
       if (!registration) {
+        await transaction.rollback();
         return errorResponse(res, 404, "Registration not found");
       }
 
-      if (registration[COLUMNS.PHIEU_DANG_KY_KTX.TRANG_THAI] !== ENUM_PHIEU_DANG_KY_TRANG_THAI.PENDING) {
-        return errorResponse(res, 400, "Only pending registrations can be rejected");
-      }
+      // Update trạng thái
+      await registration.update(
+        {
+          [COLUMNS.PHIEU_DANG_KY_KTX.TRANG_THAI]: ENUM_PHIEU_DANG_KY_TRANG_THAI.REJECTED,
+          [COLUMNS.PHIEU_DANG_KY_KTX.NGUOI_DUYET]: req.user?.id,
+          [COLUMNS.PHIEU_DANG_KY_KTX.NGAY_DUYET]: new Date(),
+          [COLUMNS.PHIEU_DANG_KY_KTX.LY_DO_TU_CHOI]: ly_do_tu_choi,
+          [COLUMNS.COMMON.NGUOI_CAP_NHAT]: req.user?.id,
+        },
+        { transaction },
+      );
 
-      await registration.update({
-        [COLUMNS.PHIEU_DANG_KY_KTX.TRANG_THAI]: ENUM_PHIEU_DANG_KY_TRANG_THAI.REJECTED,
-        [COLUMNS.PHIEU_DANG_KY_KTX.NGUOI_DUYET]: req.user.id,
-        [COLUMNS.PHIEU_DANG_KY_KTX.NGAY_DUYET]: new Date(),
-        [COLUMNS.PHIEU_DANG_KY_KTX.LY_DO_TU_CHOI]: ly_do_tu_choi,
-        [COLUMNS.COMMON.NGUOI_CAP_NHAT]: req.user.id,
-      });
+      // Commit transaction trước khi gửi email
+      await transaction.commit();
+      // Gửi email thông báo từ chối (sau khi commit)
+      if (registration.Student?.email) {
+        try {
+          await emailUtils.sendRejectionEmail(registration.Student.email, registration.Student.ten, ly_do_tu_choi);
+        } catch (emailError) {
+          console.error("Failed to send rejection email:", emailError);
+          // Không return lỗi vì database đã update thành công
+        }
+      } else {
+        console.log(`No email found for student, skipping email notification`);
+      }
 
       return successResponse(res, {
         message: "Registration rejected successfully",
+        registration: registration.toJSON(),
       });
     } catch (error) {
+      await transaction.rollback();
+      console.error("Error rejecting registration:", error);
       return errorResponse(res, 500, "Failed to reject registration", error.message);
     }
   },
-
-  // Cancel registration (by student or staff)
   cancelRegistration: async (req, res) => {
     try {
       const { id } = req.params;

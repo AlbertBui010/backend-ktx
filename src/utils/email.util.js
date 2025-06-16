@@ -108,6 +108,69 @@ export const emailUtils = {
     }
   },
 
+  // Send rejection email to student
+  sendRejectionEmail: async (email, studentName, reason = null) => {
+    try {
+      const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: email,
+        subject: "Thông báo về phiếu đăng ký KTX",
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #e74c3c;">Thông báo phiếu đăng ký KTX</h2>
+            
+            <p>Xin chào ${studentName},</p>
+            
+            <p>Chúng tôi rất tiếc phải thông báo rằng phiếu đăng ký ký túc xá của bạn <strong>không được duyệt</strong>.</p>
+            
+            ${
+              reason
+                ? `
+              <div style="background-color: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #ffc107;">
+                <h4 style="color: #856404; margin-top: 0;">Lý do từ chối:</h4>
+                <p style="color: #856404; margin-bottom: 0;">${reason}</p>
+              </div>
+            `
+                : ""
+            }
+            
+            <p><strong>Các bước tiếp theo:</strong></p>
+            <ul>
+              <li>Kiểm tra lại thông tin và hồ sơ đã nộp</li>
+              <li>Liên hệ với Ban quản lý ký túc xá để được tư vấn cụ thể</li>
+              <li>Có thể nộp lại hồ sơ trong kỳ đăng ký tiếp theo (nếu có)</li>
+            </ul>
+            
+            <div style="background-color: #d1ecf1; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #17a2b8;">
+              <h4 style="color: #0c5460; margin-top: 0;">Thông tin liên hệ:</h4>
+              <p style="color: #0c5460; margin-bottom: 0;">
+                Để biết thêm chi tiết hoặc khiếu nại, vui lòng liên hệ:<br>
+                📧 Email: ktx@university.edu.vn<br>
+                📞 Điện thoại: (024) 1234-5678<br>
+                🏢 Văn phòng: Tầng 1, Tòa nhà A, Cao Lỗ, Quận 8
+              </p>
+            </div>
+            
+            <p>Chúng tôi xin lỗi vì sự bất tiện này và cảm ơn bạn đã quan tâm đến dịch vụ ký túc xá.</p>
+            
+            <p>Trân trọng,<br>Ban quản lý ký túc xá</p>
+            
+            <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+            <p style="color: #7f8c8d; font-size: 12px;">
+              Email này được gửi tự động từ hệ thống quản lý KTX. Vui lòng không trả lời email này.
+            </p>
+          </div>
+        `,
+      };
+
+      await transporter.sendMail(mailOptions);
+      console.log(`Rejection email sent to ${email}`);
+    } catch (error) {
+      console.error("Error sending rejection email:", error);
+      throw error;
+    }
+  },
+
   // Send notification email to staff
   sendStaffNotificationEmail: async (email, subject, message) => {
     try {

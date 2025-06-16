@@ -255,9 +255,13 @@ export const authController = {
       const today = new Date();
       today.setHours(0, 0, 0, 0); // Reset time để so sánh chỉ ngày
 
-      if (startDate <= today) {
+      // Tính ngày tối đa cho phép (20 ngày từ hôm nay)
+      const maxAllowedDate = new Date(today);
+      maxAllowedDate.setDate(today.getDate() + 20);
+
+      if (startDate <= today || startDate > maxAllowedDate) {
         await transaction.rollback();
-        return errorResponse(res, 400, "Start date must be in the future");
+        return errorResponse(res, 400, "Start date must be between tomorrow and within 20 days from today");
       }
 
       // Check if student ID already exists
