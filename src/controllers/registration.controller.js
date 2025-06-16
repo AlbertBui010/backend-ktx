@@ -276,6 +276,14 @@ export const registrationController = {
         return errorResponse(res, 404, "Bed not found");
       }
 
+      // Kiểm tra giới tính của giường (phòng) với giới tính của sinh viên
+      if (
+        bed.Room?.[COLUMNS.PHONG.GIOI_TINH] &&
+        bed.Room[COLUMNS.PHONG.GIOI_TINH] !== registration.Student[COLUMNS.SINH_VIEN.PHAI]
+      ) {
+        return errorResponse(res, 400, "Bed does not match student's gender");
+      }
+
       if (bed[COLUMNS.GIUONG.TRANG_THAI] !== ENUM_GIUONG_TRANG_THAI.AVAILABLE) {
         return errorResponse(res, 400, "Bed is not available");
       }
