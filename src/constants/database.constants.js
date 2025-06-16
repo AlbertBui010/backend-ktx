@@ -187,18 +187,16 @@ export const COLUMNS = {
     NGUOI_TAO: "nguoi_tao",
     NGUOI_CAP_NHAT: "nguoi_cap_nhat",
   },
-  BANG_TIN: {
-    TIEU_DE: "tieu_de",
-    NOI_DUNG: "noi_dung",
-    HINH_NEN: "hinh_nen",
-  },
-  BANG_TIN_CHU_DE: {
-    ID_BANG_TIN: "id_bang_tin",
-    ID_CHU_DE: "id_chu_de",
+   BANG_TIN: {
+    TIEU_DE: 'tieu_de',
+    MO_TA: 'mo_ta',
+    NOI_DUNG: 'noi_dung',
+    HINH_NEN: 'hinh_nen',
+    ID_CHU_DE: 'id_chu_de',
   },
   CHU_DE: {
-    TEN_CHU_DE: "ten_chu_de",
-    MO_TA: "mo_ta",
+    TEN_CHU_DE: 'ten_chu_de',
+    MO_TA: 'mo_ta',
   },
   DON_GIA_DIEN: {
     MO_TA: "mo_ta",

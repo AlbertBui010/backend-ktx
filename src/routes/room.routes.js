@@ -98,7 +98,7 @@ router.post(
 );
 // Update bed (Staff+ only)
 router.put(
-  "/beds/:id",
+  "/rooms/:roomId/beds/:bedId",
   authenticateToken,
   requireStaff,
   createBedValidation,
@@ -106,6 +106,11 @@ router.put(
   roomController.updateBed,
 );
 // Delete bed (Staff+ only)
-router.delete("/beds/:id", authenticateToken, requireStaff, roomController.deleteBed);
+router.delete(
+  "/rooms/:roomId/beds/:bedId",
+  authenticateToken,
+  requireStaff,
+  roomController.deleteBed
+);
 
 export default router;

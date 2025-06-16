@@ -492,6 +492,23 @@ export const roomController = {
       if (!room) {
         return errorResponse(res, 404, "Room not found");
       }
+      // Get room type to check max beds
+      const roomType = await LoaiPhong.findByPk(room[COLUMNS.PHONG.ID_LOAI_PHONG]);
+      if (!roomType) {
+        return errorResponse(res, 404, "Room type not found");
+      }
+
+      // Count current beds in the room (only active)
+      const currentBedCount = await Giuong.count({
+        where: {
+          [COLUMNS.GIUONG.ID_PHONG]: roomId,
+          [COLUMNS.COMMON.DANG_HIEN]: true,
+        },
+      });
+
+      if (currentBedCount >= roomType[COLUMNS.LOAI_PHONG.SO_GIUONG]) {
+        return errorResponse(res, 400, `Cannot add more beds. This room type allows only ${roomType[COLUMNS.LOAI_PHONG.SO_GIUONG]} beds.`);
+      }
 
       // Check if bed already exists in the room
       const existingBed = await Giuong.findOne({
@@ -531,26 +548,24 @@ export const roomController = {
       const { roomId, bedId } = req.params;
       const { ten_giuong } = req.body;
 
-      // Check if room exists
       const room = await Phong.findByPk(roomId);
       if (!room) {
         return errorResponse(res, 404, "Room not found");
       }
 
-      // Check if bed exists in the room
       const bed = await Giuong.findOne({
         where: {
-          [COLUMNS.GIUONG.ID]: bedId,
+          // Change COLUMNS.GIUONG.ID to COLUMNS.COMMON.ID
+          [COLUMNS.COMMON.ID]: bedId,
           [COLUMNS.GIUONG.ID_PHONG]: roomId,
           [COLUMNS.COMMON.DANG_HIEN]: true,
         },
       });
 
       if (!bed) {
-        return errorResponse(res, 404, "Bed not found in this room");
+        return errorResponse(res, 404, "Bed not found in this room or already soft-deleted");
       }
 
-      // Update bed name
       bed[COLUMNS.GIUONG.TEN_GIUONG] = ten_giuong || bed[COLUMNS.GIUONG.TEN_GIUONG];
       bed[COLUMNS.COMMON.NGUOI_CAP_NHAT] = req.user.id;
 
@@ -561,46 +576,46 @@ export const roomController = {
         message: "Bed updated successfully",
       });
     } catch (error) {
+      console.error("Error updating bed:", error);
       return errorResponse(res, 500, "Failed to update bed", error.message);
     }
   },
-  // Delete bed in room (Staff+ only)
+
+  // For deleteBed
   deleteBed: async (req, res) => {
     try {
-      const { roomId, bedId } = req.params;
+      const { roomId, bedId } = req.params; // Assuming route is /rooms/:roomId/beds/:bedId
 
-      // Check if room exists
       const room = await Phong.findByPk(roomId);
       if (!room) {
         return errorResponse(res, 404, "Room not found");
       }
 
-      // Check if bed exists in the room
       const bed = await Giuong.findOne({
         where: {
-          [COLUMNS.GIUONG.ID]: bedId,
+          // Change COLUMNS.GIUONG.ID to COLUMNS.COMMON.ID
+          [COLUMNS.COMMON.ID]: bedId,
           [COLUMNS.GIUONG.ID_PHONG]: roomId,
           [COLUMNS.COMMON.DANG_HIEN]: true,
         },
       });
 
       if (!bed) {
-        return errorResponse(res, 404, "Bed not found in this room");
+        return errorResponse(res, 404, "Bed not found in this room or already deleted");
       }
 
-      // If bed is occupied, cannot delete
       if (bed[COLUMNS.GIUONG.TRANG_THAI] === "occupied") {
         return errorResponse(res, 400, "Cannot delete bed because it is currently occupied");
       }
 
-      // Soft delete the bed
       bed[COLUMNS.COMMON.DANG_HIEN] = false;
       await bed.save();
 
       return successResponse(res, {
-        message: "Bed deleted successfully",
+        message: "Bed deleted successfully (soft delete)",
       });
     } catch (error) {
+      console.error("Error deleting bed:", error);
       return errorResponse(res, 500, "Failed to delete bed", error.message);
     }
   },

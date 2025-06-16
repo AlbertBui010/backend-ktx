@@ -6,6 +6,7 @@ import healthRoutes from "./routes/health.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 import roomRoutes from "./routes/room.routes.js";
 import studentRoutes from "./routes/student.routes.js";
+import topicRoutes from "./routes/topic.routes.js";
 import registrationRoutes from "./routes/registration.routes.js";
 import { connectDatabase } from "./config/database.config.js";
 import { connectRedis } from "./config/redis.config.js";
@@ -49,6 +50,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/rooms", roomRoutes);
 app.use("/api/students", studentRoutes);
 app.use("/api/registrations", registrationRoutes);
+app.use("/api/topics", topicRoutes);
+
 
 // Global error handler
 app.use((err, req, res, next) => {
