@@ -1,10 +1,6 @@
 import { DataTypes } from "sequelize";
 import sequelize from "../config/database.config.js";
-import { 
-  TABLES, 
-  COLUMNS, 
-  ENUM_PHAN_BO_PHONG_TRANG_THAI 
-} from "../constants/database.constants.js";
+import { TABLES, COLUMNS, ENUM_PHAN_BO_PHONG_TRANG_THAI } from "../constants/database.constants.js";
 
 const PhanBoPhong = sequelize.define(
   TABLES.PHAN_BO_PHONG,
@@ -39,6 +35,25 @@ const PhanBoPhong = sequelize.define(
       type: DataTypes.DATE,
       allowNull: true,
     },
+    [COLUMNS.PHAN_BO_PHONG.TRANG_THAI]: {
+      // Thêm trường trạng thái
+      type: DataTypes.ENUM(
+        ENUM_PHAN_BO_PHONG_TRANG_THAI.ACTIVE,
+        ENUM_PHAN_BO_PHONG_TRANG_THAI.EXPIRED,
+        ENUM_PHAN_BO_PHONG_TRANG_THAI.TEMPORARILY_AWAY,
+        ENUM_PHAN_BO_PHONG_TRANG_THAI.SUSPENDED,
+        ENUM_PHAN_BO_PHONG_TRANG_THAI.TERMINATED,
+        ENUM_PHAN_BO_PHONG_TRANG_THAI.PENDING_CHECKOUT,
+        ENUM_PHAN_BO_PHONG_TRANG_THAI.TRANSFERRED,
+      ),
+      allowNull: false,
+      defaultValue: ENUM_PHAN_BO_PHONG_TRANG_THAI.ACTIVE,
+    },
+    [COLUMNS.PHAN_BO_PHONG.LY_DO_KET_THUC]: {
+      // Lý do kết thúc phân bổ
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
     [COLUMNS.COMMON.DANG_HIEN]: {
       type: DataTypes.BOOLEAN,
       allowNull: false,
@@ -69,6 +84,16 @@ const PhanBoPhong = sequelize.define(
     hooks: {
       beforeUpdate: (phanBo) => {
         phanBo[COLUMNS.COMMON.NGAY_CAP_NHAT] = new Date();
+
+        // Tự động set ngày rời thực tế khi chuyển sang trạng thái kết thúc
+        if (
+          phanBo[COLUMNS.PHAN_BO_PHONG.TRANG_THAI] === ENUM_PHAN_BO_PHONG_TRANG_THAI.TERMINATED ||
+          phanBo[COLUMNS.PHAN_BO_PHONG.TRANG_THAI] === ENUM_PHAN_BO_PHONG_TRANG_THAI.TRANSFERRED
+        ) {
+          if (!phanBo[COLUMNS.PHAN_BO_PHONG.NGAY_KET_THUC]) {
+            phanBo[COLUMNS.PHAN_BO_PHONG.NGAY_KET_THUC] = new Date();
+          }
+        }
       },
       beforeCreate: async (phanBo) => {
         // Validate that the bed is available
@@ -93,10 +118,10 @@ const PhanBoPhong = sequelize.define(
           [COLUMNS.COMMON.DANG_HIEN]: true,
           [COLUMNS.PHAN_BO_PHONG.NGAY_KET_THUC]: null,
         },
-        name: 'unique_active_assignment_per_student'
-      }
+        name: "unique_active_assignment_per_student",
+      },
     ],
-  }
+  },
 );
 
 export default PhanBoPhong;

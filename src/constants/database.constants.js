@@ -100,11 +100,13 @@ export const ENUM_NOI_QUY_TRANG_THAI = {
  * @enum {string} ENUM_PHAN_BO_PHONG_TRANG_THAI - Trạng thái của một lần phân bổ phòng cho sinh viên.
  */
 export const ENUM_PHAN_BO_PHONG_TRANG_THAI = {
-  ACTIVE: "active", // Sinh viên đang ở trong phòng theo phân bổ này.
-  EXPIRED: "expired", // Phân bổ đã hết hạn.
-  TERMINATED: "terminated", // Phân bổ đã kết thúc sớm sớm (ví dụ: sinh viên chuyển đi).
-  PENDING: "pending", // Chờ sinh viên vào ở theo phân bổ.
-  CANCELLED: "cancelled", // Đã hủy phân bổ.
+  ACTIVE: "active", // Đang ở - trạng thái bình thường
+  EXPIRED: "expired", // Đã hết hạn - phân bổ đã quá thời gian quy định
+  TEMPORARILY_AWAY: "temp_away", // Tạm vắng - nghỉ học tạm thời, về quê...
+  SUSPENDED: "suspended", // Tạm dừng - do vi phạm nội quy
+  TERMINATED: "terminated", // Kết thúc - chính thức rời KTX
+  PENDING_CHECKOUT: "pending_checkout", // Chờ trả phòng - đã đăng ký rời nhưng chưa hoàn tất thủ tục
+  TRANSFERRED: "transferred", // Đã chuyển phòng - chuyển sang phân bổ mới
 };
 
 /**
@@ -257,6 +259,8 @@ export const COLUMNS = {
     ID_GIUONG: "id_giuong",
     NGAY_BAT_DAU: "ngay_bat_dau",
     NGAY_KET_THUC: "ngay_ket_thuc",
+    TRANG_THAI: "trang_thai",
+    LY_DO_KET_THUC: "ly_do_ket_thuc",
   },
   PHIEU_DANG_KY_KTX: {
     ID_SINH_VIEN: "id_sinh_vien",
