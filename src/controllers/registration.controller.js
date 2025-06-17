@@ -124,22 +124,23 @@ export const registrationController = {
               COLUMNS.SINH_VIEN.EMAIL,
               COLUMNS.SINH_VIEN.SDT,
               COLUMNS.SINH_VIEN.KHOA,
+              COLUMNS.SINH_VIEN.PHAI,
             ],
             where: search
               ? {
-                  [sequelize.Op.or]: [
-                    {
-                      [COLUMNS.SINH_VIEN.TEN]: {
-                        [sequelize.Op.iLike]: `%${search}%`,
-                      },
+                [sequelize.Op.or]: [
+                  {
+                    [COLUMNS.SINH_VIEN.TEN]: {
+                      [sequelize.Op.iLike]: `%${search}%`,
                     },
-                    {
-                      [COLUMNS.SINH_VIEN.MSSV]: {
-                        [sequelize.Op.iLike]: `%${search}%`,
-                      },
+                  },
+                  {
+                    [COLUMNS.SINH_VIEN.MSSV]: {
+                      [sequelize.Op.iLike]: `%${search}%`,
                     },
-                  ],
-                }
+                  },
+                ],
+              }
               : undefined,
           },
           {
@@ -230,10 +231,11 @@ export const registrationController = {
 
   // Approve registration and assign accommodation
   approveRegistration: async (req, res) => {
+
     try {
       const { id } = req.params;
       const { id_giuong, ghi_chu } = req.body;
-
+      console.log("Approve registration:", req.body, req.params);
       if (!id_giuong) {
         return errorResponse(res, 400, "Bed ID is required for approval");
       }
