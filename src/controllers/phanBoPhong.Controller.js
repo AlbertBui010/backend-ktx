@@ -1,0 +1,171 @@
+// src/controllers/phanBoPhongController.js
+
+// Change this line:
+import { successResponse, errorResponse } from "../utils/response.util.js"; // <-- Import named exports directly
+
+import { SinhVien, Giuong, Phong, PhanBoPhong, LoaiPhong } from "../models/index.js";
+import { COLUMNS, ENUM_PHAN_BO_PHONG_TRANG_THAI } from "../constants/database.constants.js";
+import { Op } from "sequelize";
+import sequelize from "../config/database.config.js";
+
+export const phanBoPhongController = {
+  /**
+   * Get all room allocations with pagination and filtering
+   */
+  getAll: async (req, res) => {
+    try {
+      const { page = 1, limit = 20 } = req.query;
+      const offset = (page - 1) * limit;
+
+      const { count, rows } = await PhanBoPhong.findAndCountAll({
+        where: { dang_hien: true },
+        include: [
+          { model: SinhVien, as: "Student" },
+          { 
+            model: Giuong, 
+            as: "Bed",
+            include: [
+              { model: Phong, as: "Room" }
+            ]
+          }
+        ],
+        limit: parseInt(limit),
+        offset: parseInt(offset),
+        order: [["ngay_tao", "DESC"]],
+      });
+
+      const totalPages = Math.ceil(count / limit);
+
+      return successResponse(res, {
+        allocations: rows,
+        pagination: {
+          current_page: parseInt(page),
+          total_pages: totalPages,
+          total_items: count,
+          items_per_page: parseInt(limit),
+        },
+      });
+    } catch (error) {
+      console.error("Error in getAll allocations:", error);
+      return errorResponse(res, 500, "Lỗi server khi lấy danh sách phân bổ phòng", error.message);
+    }
+  },
+
+  /**
+   * Get room allocation by ID
+   */
+  getById: async (req, res) => {
+    try {
+      // ... (rest of your code)
+      if (!allocation) return errorResponse(res, 404, "Không tìm thấy phân bổ phòng");
+      return successResponse(res, allocation);
+    } catch (error) {
+      console.error("Error in getById allocation:", error);
+      return errorResponse(res, 500, "Lỗi server khi lấy thông tin phân bổ phòng", error.message);
+    }
+  },
+
+  /**
+   * Create new room allocation
+   */
+  create: async (req, res) => {
+    const t = await sequelize.transaction();
+    try {
+      // ... (rest of your code)
+
+      if (!id_sv || !id_giuong || !ngay_bat_dau) {
+        await t.rollback();
+        return errorResponse(res, 400, "Thiếu thông tin bắt buộc: ID sinh viên, ID giường, Ngày bắt đầu.");
+      }
+
+      if (existingActiveAllocationForStudent) {
+        await t.rollback();
+        return errorResponse(res, 409, "Sinh viên đã có phân bổ phòng đang hoạt động.");
+      }
+
+      if (bedCurrentlyOccupied) {
+        await t.rollback();
+        return errorResponse(res, 409, "Giường này hiện đang có sinh viên khác ở.");
+      }
+
+      // ... (create allocation)
+
+      await t.commit();
+      return successResponse(res, allocation, "Tạo phân bổ phòng mới thành công", 201);
+    } catch (error) {
+      await t.rollback();
+      console.error("Error in create allocation:", error);
+      if (error.name === 'SequelizeUniqueConstraintError') {
+        const constraintName = error.parent?.constraint;
+        if (constraintName === 'unique_active_assignment_per_student') {
+            return errorResponse(res, 409, "Sinh viên đã có phân bổ phòng đang hoạt động.");
+        }
+        return errorResponse(res, 409, "Thông tin phân bổ phòng bị trùng lặp.");
+      }
+      return errorResponse(res, 500, "Lỗi server khi tạo phân bổ phòng mới", error.message);
+    }
+  },
+
+  /**
+   * Update room allocation
+   */
+  update: async (req, res) => {
+    const t = await sequelize.transaction();
+    try {
+      // ... (rest of your code)
+      if (!allocation) {
+        await t.rollback();
+        return errorResponse(res, 404, "Không tìm thấy phân bổ phòng");
+      }
+
+      // ... (validation checks)
+
+      if (existingActiveAllocationForStudent) {
+        await t.rollback();
+        return errorResponse(res, 409, "Sinh viên đã có phân bổ phòng đang hoạt động khác.");
+      }
+
+      if (bedCurrentlyOccupied) {
+        await t.rollback();
+        return errorResponse(res, 409, "Giường này hiện đang có sinh viên khác ở.");
+      }
+
+      await allocation.update(updateData, { transaction: t });
+      await t.commit();
+      return successResponse(res, allocation, "Cập nhật phân bổ phòng thành công");
+    } catch (error) {
+      await t.rollback();
+      console.error("Error in update allocation:", error);
+      if (error.name === 'SequelizeUniqueConstraintError') {
+        return errorResponse(res, 409, "Cập nhật thất bại do thông tin trùng lặp.");
+      }
+      return errorResponse(res, 500, "Lỗi server khi cập nhật phân bổ phòng", error.message);
+    }
+  },
+
+  /**
+   * Soft delete room allocation
+   */
+  delete: async (req, res) => {
+    const t = await sequelize.transaction();
+    try {
+      const { id } = req.params;
+      const allocation = await PhanBoPhong.findByPk(id, { transaction: t });
+      if (!allocation) {
+        await t.rollback();
+        return errorResponse(res, 404, "Không tìm thấy phân bổ phòng");
+      }
+
+      // ... (soft delete logic)
+
+      await allocation.save({ transaction: t });
+
+      await t.commit();
+      return successResponse(res, null, "Xóa mềm phân bổ phòng thành công"); // Changed data to null for soft delete
+    } catch (error) {
+      await t.rollback();
+      console.error("Error in delete allocation:", error);
+      return errorResponse(res, 500, "Lỗi server khi xóa phân bổ phòng", error.message);
+    }
+  },
+};

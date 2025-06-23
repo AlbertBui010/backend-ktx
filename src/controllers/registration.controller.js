@@ -1,4 +1,4 @@
-import { PhieuDangKy, SinhVien, Giuong, Phong, LoaiPhong, NhanVien } from "../models/index.js";
+import { PhieuDangKy, SinhVien, Giuong, Phong, LoaiPhong, NhanVien, PhanBoPhong } from "../models/index.js";
 import { successResponse, errorResponse } from "../utils/response.util.js";
 import { emailUtils } from "../utils/email.util.js";
 import {
@@ -128,19 +128,19 @@ export const registrationController = {
             ],
             where: search
               ? {
-                [sequelize.Op.or]: [
-                  {
-                    [COLUMNS.SINH_VIEN.TEN]: {
-                      [sequelize.Op.iLike]: `%${search}%`,
+                  [sequelize.Op.or]: [
+                    {
+                      [COLUMNS.SINH_VIEN.TEN]: {
+                        [sequelize.Op.iLike]: `%${search}%`,
+                      },
                     },
-                  },
-                  {
-                    [COLUMNS.SINH_VIEN.MSSV]: {
-                      [sequelize.Op.iLike]: `%${search}%`,
+                    {
+                      [COLUMNS.SINH_VIEN.MSSV]: {
+                        [sequelize.Op.iLike]: `%${search}%`,
+                      },
                     },
-                  },
-                ],
-              }
+                  ],
+                }
               : undefined,
           },
           {
@@ -231,11 +231,10 @@ export const registrationController = {
 
   // Approve registration and assign accommodation
   approveRegistration: async (req, res) => {
-
     try {
       const { id } = req.params;
       const { id_giuong, ghi_chu } = req.body;
-      console.log("Approve registration:", req.body, req.params);
+
       if (!id_giuong) {
         return errorResponse(res, 400, "Bed ID is required for approval");
       }
@@ -328,6 +327,18 @@ export const registrationController = {
           },
           { transaction },
         );
+
+        // === THÊM ĐOẠN NÀY: TẠO PHÂN BỔ PHÒNG ===
+        await PhanBoPhong.create({
+          [COLUMNS.PHAN_BO_PHONG.ID_SV]: registration[COLUMNS.PHIEU_DANG_KY_KTX.ID_SINH_VIEN],
+          [COLUMNS.PHAN_BO_PHONG.ID_GIUONG]: id_giuong,
+          [COLUMNS.PHAN_BO_PHONG.NGAY_BAT_DAU]: registration[COLUMNS.PHIEU_DANG_KY_KTX.NGAY_BAT_DAU],
+          [COLUMNS.PHAN_BO_PHONG.NGAY_KET_THUC]: registration[COLUMNS.PHIEU_DANG_KY_KTX.NGAY_KET_THUC],
+          [COLUMNS.PHAN_BO_PHONG.TRANG_THAI]: "active", // hoặc ENUM_PHAN_BO_PHONG_TRANG_THAI.ACTIVE
+          [COLUMNS.COMMON.NGUOI_TAO]: req.user.id,
+          [COLUMNS.COMMON.NGUOI_CAP_NHAT]: req.user.id,
+        }, { transaction });
+        // =========================================
 
         // Generate password setup token if student doesn't have password
         if (!registration.Student[COLUMNS.SINH_VIEN.MAT_KHAU]) {

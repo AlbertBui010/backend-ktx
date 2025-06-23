@@ -8,6 +8,8 @@ import roomRoutes from "./routes/room.routes.js";
 import studentRoutes from "./routes/student.routes.js";
 import topicRoutes from "./routes/topic.routes.js";
 import registrationRoutes from "./routes/registration.routes.js";
+import nhanVienRoutes from "./routes/nhanVien.routes.js";
+import phanBoPhongRoutes from "./routes/phanBoPhong.routes.js";
 import { connectDatabase } from "./config/database.config.js";
 import { connectRedis } from "./config/redis.config.js";
 import { emailUtils } from "./utils/email.util.js";
@@ -51,6 +53,8 @@ app.use("/api/rooms", roomRoutes);
 app.use("/api/students", studentRoutes);
 app.use("/api/registrations", registrationRoutes);
 app.use("/api/topics", topicRoutes);
+app.use("/api/staff", nhanVienRoutes);
+app.use("/api/room-allocations", phanBoPhongRoutes);
 
 
 // Global error handler
