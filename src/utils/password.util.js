@@ -1,6 +1,6 @@
 import bcrypt from "bcrypt";
 
-const SALT_ROUNDS = 12;
+const SALT_ROUNDS = 10;
 
 export const passwordUtils = {
   // Hash password

@@ -11,58 +11,68 @@ const getAllSinhVien = async (req, res) => {
       page = 1,
       limit = 10,
       mssv,
-      ho_ten,
-      email,
+      ten,
+      dia_chi,
+      phai, // đổi từ gioi_tinh thành phai
+      ngay_sinh,
+      noi_sinh,
+      dan_toc,
+      ton_giao,
       khoa,
-      nganh,
-      khoa_hoc,
-      gioi_tinh,
+      sdt,
+      cmnd,
+      ngay_cap_cmnd,
+      noi_cap_cmnd,
+      ho_khau,
+      dia_chi_lien_he,
       trang_thai,
-      search,
-      sort_by = 'ho_ten',
-      sort_order = 'ASC'
+      email,
+      lop,
+      dang_hien,
+      ghi_chu,
+      phu_huynh = []
     } = req.query;
 
     const offset = (parseInt(page) - 1) * parseInt(limit);
-    
+
     // Build where condition
     const whereCondition = {};
-    
+
     if (mssv) {
       whereCondition.mssv = { [Op.iLike]: `%${mssv}%` };
     }
-    
-    if (ho_ten) {
-      whereCondition.ho_ten = { [Op.iLike]: `%${ho_ten}%` };
+
+    if (ten) {
+      whereCondition.ten = { [Op.iLike]: `%${ten}%` };
     }
-    
+
     if (email) {
       whereCondition.email = { [Op.iLike]: `%${email}%` };
     }
-    
+
     if (khoa) {
       whereCondition.khoa = { [Op.iLike]: `%${khoa}%` };
     }
-    
+
     if (nganh) {
       whereCondition.nganh = { [Op.iLike]: `%${nganh}%` };
     }
-    
+
     if (khoa_hoc) {
       whereCondition.khoa_hoc = khoa_hoc;
     }
-    
-    if (gioi_tinh) {
-      whereCondition.gioi_tinh = gioi_tinh;
+
+    if (phai) {
+      whereCondition.phai = phai;
     }
-    
+
     if (trang_thai) {
       whereCondition.trang_thai = trang_thai;
     }
-    
+
     if (search) {
       whereCondition[Op.or] = [
-        { ho_ten: { [Op.iLike]: `%${search}%` } },
+        { ten: { [Op.iLike]: `%${search}%` } },
         { mssv: { [Op.iLike]: `%${search}%` } },
         { email: { [Op.iLike]: `%${search}%` } },
         { khoa: { [Op.iLike]: `%${search}%` } },
@@ -75,7 +85,7 @@ const getAllSinhVien = async (req, res) => {
       {
         model: PhuHuynh,
         as: 'phu_huynh',
-        attributes: ['id', 'ho_ten', 'sdt', 'email', 'dia_chi', 'moi_quan_he']
+        attributes: ['id', 'ten', 'sdt', 'email', 'dia_chi', 'moi_quan_he']
       },
       {
         model: PhanBoPhong,
@@ -251,25 +261,32 @@ const createSinhVien = async (req, res) => {
   try {
     const {
       mssv,
-      ho_ten,
-      email,
-      sdt,
-      gioi_tinh,
+      ten,
+      dia_chi,
+      phai, // đổi từ gioi_tinh thành phai
       ngay_sinh,
-      cccd,
-      dia_chi_thuong_tru,
-      dia_chi_lien_lac,
+      noi_sinh,
+      dan_toc,
+      ton_giao,
       khoa,
-      nganh,
-      khoa_hoc,
+      sdt,
+      cmnd,
+      ngay_cap_cmnd,
+      noi_cap_cmnd,
+      ho_khau,
+      dia_chi_lien_he,
+      trang_thai,
+      email,
+      lop,
+      dang_hien,
       ghi_chu,
       phu_huynh = []
     } = req.body;
-    
+
     const nguoi_tao = req.user.id;
 
     // Validate required fields
-    if (!mssv || !ho_ten || !email || !gioi_tinh || !khoa || !nganh || !khoa_hoc) {
+    if (!mssv || !ten || !email || !phai || !khoa) {
       return responseFormatter(res, 400, 'Thiếu thông tin bắt buộc');
     }
 
@@ -288,17 +305,24 @@ const createSinhVien = async (req, res) => {
     // Create student
     const newSinhVien = await SinhVien.create({
       mssv,
-      ho_ten,
-      email,
-      sdt,
-      gioi_tinh,
+      ten,
+      dia_chi,
+      phai,
       ngay_sinh,
-      cccd,
-      dia_chi_thuong_tru,
-      dia_chi_lien_lac,
+      noi_sinh,
+      dan_toc,
+      ton_giao,
       khoa,
-      nganh,
-      khoa_hoc,
+      sdt,
+      cmnd,
+      ngay_cap_cmnd,
+      noi_cap_cmnd,
+      ho_khau,
+      dia_chi_lien_he,
+      trang_thai,
+      email,
+      lop,
+      dang_hien,
       ghi_chu,
       nguoi_tao
     });
@@ -310,7 +334,7 @@ const createSinhVien = async (req, res) => {
         id_sinh_vien: newSinhVien.id,
         nguoi_tao
       }));
-      
+
       await PhuHuynh.bulkCreate(phuHuynhData);
     }
 
@@ -339,20 +363,27 @@ const updateSinhVien = async (req, res) => {
   try {
     const { id } = req.params;
     const {
-      ho_ten,
-      email,
-      sdt,
+      ten,
+      dia_chi,
+      phai,
       ngay_sinh,
-      cccd,
-      dia_chi_thuong_tru,
-      dia_chi_lien_lac,
+      noi_sinh,
+      dan_toc,
+      ton_giao,
       khoa,
-      nganh,
-      khoa_hoc,
+      sdt,
+      cmnd,
+      ngay_cap_cmnd,
+      noi_cap_cmnd,
+      ho_khau,
+      dia_chi_lien_he,
       trang_thai,
+      email,
+      lop,
+      dang_hien,
       ghi_chu
     } = req.body;
-    
+
     const nguoi_cap_nhat = req.user.id;
 
     const sinhVien = await SinhVien.findByPk(id);
@@ -363,29 +394,36 @@ const updateSinhVien = async (req, res) => {
     // Check email uniqueness if email is being updated
     if (email && email !== sinhVien.email) {
       const existingEmail = await SinhVien.findOne({
-        where: { 
+        where: {
           email,
           id: { [Op.ne]: id }
         }
       });
-      
+
       if (existingEmail) {
         return responseFormatter(res, 409, 'Email đã tồn tại trong hệ thống');
       }
     }
 
     await sinhVien.update({
-      ...(ho_ten && { ho_ten }),
-      ...(email && { email }),
-      ...(sdt && { sdt }),
+      ...(ten && { ten }),
+      ...(dia_chi && { dia_chi }),
+      ...(phai && { phai }),
       ...(ngay_sinh && { ngay_sinh }),
-      ...(cccd && { cccd }),
-      ...(dia_chi_thuong_tru && { dia_chi_thuong_tru }),
-      ...(dia_chi_lien_lac && { dia_chi_lien_lac }),
+      ...(noi_sinh && { noi_sinh }),
+      ...(dan_toc && { dan_toc }),
+      ...(ton_giao && { ton_giao }),
       ...(khoa && { khoa }),
-      ...(nganh && { nganh }),
-      ...(khoa_hoc && { khoa_hoc }),
+      ...(sdt && { sdt }),
+      ...(cmnd && { cmnd }),
+      ...(ngay_cap_cmnd && { ngay_cap_cmnd }),
+      ...(noi_cap_cmnd && { noi_cap_cmnd }),
+      ...(ho_khau && { ho_khau }),
+      ...(dia_chi_lien_he && { dia_chi_lien_he }),
       ...(trang_thai && { trang_thai }),
+      ...(email && { email }),
+      ...(lop && { lop }),
+      ...(dang_hien !== undefined && { dang_hien }),
       ...(ghi_chu !== undefined && { ghi_chu }),
       nguoi_cap_nhat
     });
@@ -441,7 +479,7 @@ const deleteSinhVien = async (req, res) => {
 
     // Check if student has active room assignment
     const activePhanBo = await PhanBoPhong.findOne({
-      where: { 
+      where: {
         id_sinh_vien: id,
         trang_thai: 'active'
       }
@@ -453,7 +491,7 @@ const deleteSinhVien = async (req, res) => {
 
     // Check if student has pending applications
     const pendingApplications = await PhieuDangKyKTX.findOne({
-      where: { 
+      where: {
         id_sinh_vien: id,
         trang_thai: 'pending'
       }
