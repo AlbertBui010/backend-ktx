@@ -27,6 +27,7 @@ const createRoomValidation = [
   body("id_loai_phong").isInt({ min: 1 }).withMessage("Valid room type ID is required"),
   body("so_tang").isInt({ min: 1, max: 20 }).withMessage("Floor must be between 1 and 20"),
   body("gioi_tinh").optional().isIn(["Nam", "Nữ", "Hỗn hợp"]).withMessage("Gender must be Nam, Nữ, or Hỗn hợp"),
+  body("hinh_anh").optional().isURL().withMessage("Image must be a valid URL"),
 ];
 
 const createBedValidation = [
@@ -60,9 +61,9 @@ router.put(
 router.delete("/room-types/:id", authenticateToken, requireStaff, roomController.deleteRoomType);
 
 // ======== ROOMS routes ========
-router.get("/rooms", authenticateToken, roomController.getRooms);
+router.get("/rooms", roomController.getRooms);
 // Available rooms
-router.get("/rooms/available", authenticateToken, roomController.getAvailableRooms);
+router.get("/rooms/available", roomController.getAvailableRooms);
 // Creaete room (Staff+ only)
 router.post(
   "/rooms",

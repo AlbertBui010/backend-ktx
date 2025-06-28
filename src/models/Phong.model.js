@@ -55,6 +55,12 @@ const Phong = sequelize.define(
       type: DataTypes.TEXT,
       allowNull: true,
     },
+    // Thêm trường hình ảnh
+    hinh_anh: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+      comment: "URL hình ảnh phòng",
+    },
     [COLUMNS.COMMON.NGUOI_TAO]: {
       type: DataTypes.INTEGER,
       allowNull: true,
