@@ -76,6 +76,7 @@ export const roomController = {
         [COLUMNS.LOAI_PHONG.MO_TA]: mo_ta,
         [COLUMNS.LOAI_PHONG.GIA_THUE]: gia_thue,
         [COLUMNS.COMMON.NGUOI_TAO]: req.user.id,
+        
       });
 
       return successResponse(
@@ -270,7 +271,7 @@ export const roomController = {
   // Create room (Staff+ only)
   createRoom: async (req, res) => {
     try {
-      const { ten_phong, id_loai_phong, so_tang, gioi_tinh, ghi_chu } = req.body;
+      const { ten_phong, id_loai_phong, so_tang, gioi_tinh, ghi_chu,hinh_anh } = req.body;
 
       if (!ten_phong || !id_loai_phong || !so_tang) {
         return errorResponse(res, 400, "Room name, room type ID, and floor are required");
@@ -300,6 +301,7 @@ export const roomController = {
         [COLUMNS.PHONG.SO_TANG]: so_tang,
         [COLUMNS.PHONG.GIOI_TINH]: gioi_tinh,
         [COLUMNS.PHONG.GHI_CHU]: ghi_chu,
+        [COLUMNS.PHONG.HINH_ANH]: hinh_anh,
         [COLUMNS.COMMON.NGUOI_TAO]: req.user.id,
       });
 
@@ -333,7 +335,7 @@ export const roomController = {
   updateRoom: async (req, res) => {
     try {
       const { id } = req.params;
-      const { ten_phong, id_loai_phong, so_tang, gioi_tinh, ghi_chu } = req.body;
+      const { ten_phong, id_loai_phong, so_tang, gioi_tinh, ghi_chu,hinh_anh } = req.body;
 
       const room = await Phong.findByPk(id);
       if (!room) {
@@ -371,6 +373,7 @@ export const roomController = {
       room[COLUMNS.PHONG.SO_TANG] = so_tang || room[COLUMNS.PHONG.SO_TANG];
       room[COLUMNS.PHONG.GIOI_TINH] = gioi_tinh || room[COLUMNS.PHONG.GIOI_TINH];
       room[COLUMNS.PHONG.GHI_CHU] = ghi_chu || room[COLUMNS.PHONG.GHI_CHU];
+      room[COLUMNS.PHONG.HINH_ANH] = hinh_anh || room[COLUMNS.PHONG.HINH_ANH];
       room[COLUMNS.COMMON.NGUOI_CAP_NHAT] = req.user.id;
 
       await room.save();

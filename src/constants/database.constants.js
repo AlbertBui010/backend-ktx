@@ -281,6 +281,7 @@ export const COLUMNS = {
     TRANG_THAI: "trang_thai",
     GIOI_TINH: "gioi_tinh",
     GHI_CHU: "ghi_chu",
+    HINH_ANH: "hinh_anh", // URL hình ảnh phòng
   },
   PHU_HUYNH: {
     ID_SINH_VIEN: "id_sinh_vien",
