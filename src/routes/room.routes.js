@@ -39,7 +39,7 @@ const createBedValidation = [
 ];
 
 // ======== ROOM TYPES routes ========
-router.get("/room-types", authenticateToken, roomController.getRoomTypes);
+router.get("/room-types", roomController.getRoomTypes);
 router.post(
   "/room-types",
   authenticateToken,
@@ -87,7 +87,7 @@ router.delete("/rooms/:id", authenticateToken, requireStaff, roomController.dele
 
 // ======== BEDS routes ========
 // Get all beds by room ID
-router.get("/rooms/:roomId/beds", authenticateToken, roomController.getBedsByRoom);
+router.get("/rooms/:roomId/beds", roomController.getBedsByRoom);
 // Create bed (Staff+ only)
 router.post(
   "/rooms/:roomId/beds",

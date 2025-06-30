@@ -10,6 +10,7 @@ const getAllSinhVien = async (req, res) => {
     const {
       page = 1,
       limit = 10,
+      eligible, // <-- thêm biến này
       mssv,
       ten,
       dia_chi,
@@ -81,13 +82,28 @@ const getAllSinhVien = async (req, res) => {
     }
 
     // Include related data
-    const include = [
+    let include = [
       {
         model: PhuHuynh,
         as: 'phu_huynh',
         attributes: ['id', 'ten', 'sdt', 'email', 'dia_chi', 'moi_quan_he']
-      },
-      {
+      }
+    ];
+
+    if (eligible === "true") {
+      whereCondition.trang_thai = { [Op.ne]: "banned" };
+      include.push({
+        model: PhanBoPhong,
+        as: 'phan_bo_phong',
+        required: false,
+        where: {
+          trang_thai: 'active',
+          dang_hien: true,
+          ngay_ket_thuc: null
+        }
+      });
+    } else {
+      include.push({
         model: PhanBoPhong,
         as: 'phan_bo_phong',
         required: false,
@@ -113,26 +129,34 @@ const getAllSinhVien = async (req, res) => {
             ]
           }
         ]
-      }
-    ];
+      });
+    }
 
     const { count, rows } = await SinhVien.findAndCountAll({
       where: whereCondition,
       include,
       limit: parseInt(limit),
       offset,
-      order: [[sort_by, sort_order.toUpperCase()]],
+      order: [["id", "ASC"]],
       distinct: true
     });
 
-    const totalPages = Math.ceil(count / parseInt(limit));
+    // Nếu lọc eligible, chỉ trả về sinh viên chưa có phân bổ phòng active
+    let filteredRows = rows;
+    if (eligible === "true") {
+      filteredRows = rows.filter(
+        sv => !sv.phan_bo_phong || sv.phan_bo_phong.length === 0
+      );
+    }
+
+    const totalPages = Math.ceil(filteredRows.length / parseInt(limit));
 
     return responseFormatter(res, 200, 'Lấy danh sách sinh viên thành công', {
-      sinh_vien: rows,
+      students: filteredRows,
       pagination: {
         current_page: parseInt(page),
         total_pages: totalPages,
-        total_items: count,
+        total_items: filteredRows.length,
         items_per_page: parseInt(limit)
       }
     });

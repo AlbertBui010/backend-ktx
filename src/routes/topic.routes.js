@@ -7,7 +7,7 @@ import { validationMiddleware } from "../middleware/validation.middleware.js";
 const router = express.Router();
 
 // ======== CHU DE (TOPIC) ========
-router.get("/topics", authenticateToken, topicController.getAllTopics);
+router.get("/topics", topicController.getAllTopics);
 router.post(
   "/topics",
   authenticateToken,
@@ -35,7 +35,7 @@ router.delete(
 );
 
 // ======== BANG TIN (NEWS) ========
-router.get("/news", authenticateToken, topicController.getAllBangTin);
+router.get("/news", topicController.getAllBangTin);
 router.post(
   "/news",
   authenticateToken,
