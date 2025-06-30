@@ -1,9 +1,7 @@
 // src/controllers/phanBoPhongController.js
 
-// Change this line:
-import { successResponse, errorResponse } from "../utils/response.util.js"; // <-- Import named exports directly
-
-import { SinhVien, Giuong, Phong, PhanBoPhong, LoaiPhong } from "../models/index.js";
+import { successResponse, errorResponse } from "../utils/response.util.js";
+import { SinhVien, Giuong, Phong, PhanBoPhong } from "../models/index.js";
 import { COLUMNS, ENUM_PHAN_BO_PHONG_TRANG_THAI } from "../constants/database.constants.js";
 import { Op } from "sequelize";
 import sequelize from "../config/database.config.js";
@@ -21,12 +19,10 @@ export const phanBoPhongController = {
         where: { dang_hien: true },
         include: [
           { model: SinhVien, as: "Student" },
-          { 
-            model: Giuong, 
+          {
+            model: Giuong,
             as: "Bed",
-            include: [
-              { model: Phong, as: "Room" }
-            ]
+            include: [{ model: Phong, as: "Room" }]
           }
         ],
         limit: parseInt(limit),
@@ -34,19 +30,16 @@ export const phanBoPhongController = {
         order: [["ngay_tao", "DESC"]],
       });
 
-      const totalPages = Math.ceil(count / limit);
-
       return successResponse(res, {
         allocations: rows,
         pagination: {
           current_page: parseInt(page),
-          total_pages: totalPages,
+          total_pages: Math.ceil(count / limit),
           total_items: count,
           items_per_page: parseInt(limit),
         },
       });
     } catch (error) {
-      console.error("Error in getAll allocations:", error);
       return errorResponse(res, 500, "Lỗi server khi lấy danh sách phân bổ phòng", error.message);
     }
   },
@@ -56,11 +49,20 @@ export const phanBoPhongController = {
    */
   getById: async (req, res) => {
     try {
-      // ... (rest of your code)
+      const { id } = req.params;
+      const allocation = await PhanBoPhong.findByPk(id, {
+        include: [
+          { model: SinhVien, as: "Student" },
+          {
+            model: Giuong,
+            as: "Bed",
+            include: [{ model: Phong, as: "Room" }]
+          }
+        ]
+      });
       if (!allocation) return errorResponse(res, 404, "Không tìm thấy phân bổ phòng");
       return successResponse(res, allocation);
     } catch (error) {
-      console.error("Error in getById allocation:", error);
       return errorResponse(res, 500, "Lỗi server khi lấy thông tin phân bổ phòng", error.message);
     }
   },
@@ -71,35 +73,59 @@ export const phanBoPhongController = {
   create: async (req, res) => {
     const t = await sequelize.transaction();
     try {
-      // ... (rest of your code)
+      const { id_sv, id_giuong, ngay_bat_dau, ngay_ket_thuc, trang_thai, ly_do_ket_thuc } = req.body;
 
       if (!id_sv || !id_giuong || !ngay_bat_dau) {
         await t.rollback();
         return errorResponse(res, 400, "Thiếu thông tin bắt buộc: ID sinh viên, ID giường, Ngày bắt đầu.");
       }
 
+      // Kiểm tra sinh viên đã có phân bổ phòng đang hoạt động chưa
+      const existingActiveAllocationForStudent = await PhanBoPhong.findOne({
+        where: {
+          id_sv,
+          dang_hien: true,
+          ngay_ket_thuc: null,
+        },
+        transaction: t,
+      });
       if (existingActiveAllocationForStudent) {
         await t.rollback();
         return errorResponse(res, 409, "Sinh viên đã có phân bổ phòng đang hoạt động.");
       }
 
+      // Kiểm tra giường đã có sinh viên ở chưa
+      const bedCurrentlyOccupied = await PhanBoPhong.findOne({
+        where: {
+          id_giuong,
+          dang_hien: true,
+          ngay_ket_thuc: null,
+        },
+        transaction: t,
+      });
       if (bedCurrentlyOccupied) {
         await t.rollback();
         return errorResponse(res, 409, "Giường này hiện đang có sinh viên khác ở.");
       }
 
-      // ... (create allocation)
+      // Tạo phân bổ phòng mới
+      const allocation = await PhanBoPhong.create({
+        id_sv,
+        id_giuong,
+        ngay_bat_dau,
+        ngay_ket_thuc: ngay_ket_thuc || null,
+        trang_thai: trang_thai || ENUM_PHAN_BO_PHONG_TRANG_THAI.ACTIVE,
+        ly_do_ket_thuc: ly_do_ket_thuc || null,
+        dang_hien: true,
+        nguoi_tao: req.user?.id,
+        nguoi_cap_nhat: req.user?.id,
+      }, { transaction: t });
 
       await t.commit();
       return successResponse(res, allocation, "Tạo phân bổ phòng mới thành công", 201);
     } catch (error) {
       await t.rollback();
-      console.error("Error in create allocation:", error);
       if (error.name === 'SequelizeUniqueConstraintError') {
-        const constraintName = error.parent?.constraint;
-        if (constraintName === 'unique_active_assignment_per_student') {
-            return errorResponse(res, 409, "Sinh viên đã có phân bổ phòng đang hoạt động.");
-        }
         return errorResponse(res, 409, "Thông tin phân bổ phòng bị trùng lặp.");
       }
       return errorResponse(res, 500, "Lỗi server khi tạo phân bổ phòng mới", error.message);
@@ -112,30 +138,59 @@ export const phanBoPhongController = {
   update: async (req, res) => {
     const t = await sequelize.transaction();
     try {
-      // ... (rest of your code)
+      const { id } = req.params;
+      const { id_sv, id_giuong, ngay_bat_dau, ngay_ket_thuc, trang_thai, ly_do_ket_thuc } = req.body;
+
+      const allocation = await PhanBoPhong.findByPk(id, { transaction: t });
       if (!allocation) {
         await t.rollback();
         return errorResponse(res, 404, "Không tìm thấy phân bổ phòng");
       }
 
-      // ... (validation checks)
-
+      // Kiểm tra sinh viên đã có phân bổ phòng đang hoạt động khác chưa (trừ chính bản ghi này)
+      const existingActiveAllocationForStudent = await PhanBoPhong.findOne({
+        where: {
+          id_sv,
+          id: { [Op.ne]: id },
+          dang_hien: true,
+          ngay_ket_thuc: null,
+        },
+        transaction: t,
+      });
       if (existingActiveAllocationForStudent) {
         await t.rollback();
         return errorResponse(res, 409, "Sinh viên đã có phân bổ phòng đang hoạt động khác.");
       }
 
+      // Kiểm tra giường đã có sinh viên khác ở chưa (trừ chính bản ghi này)
+      const bedCurrentlyOccupied = await PhanBoPhong.findOne({
+        where: {
+          id_giuong,
+          id: { [Op.ne]: id },
+          dang_hien: true,
+          ngay_ket_thuc: null,
+        },
+        transaction: t,
+      });
       if (bedCurrentlyOccupied) {
         await t.rollback();
         return errorResponse(res, 409, "Giường này hiện đang có sinh viên khác ở.");
       }
 
-      await allocation.update(updateData, { transaction: t });
+      await allocation.update({
+        id_sv,
+        id_giuong,
+        ngay_bat_dau,
+        ngay_ket_thuc: ngay_ket_thuc || null,
+        trang_thai,
+        ly_do_ket_thuc: ly_do_ket_thuc || null,
+        nguoi_cap_nhat: req.user?.id,
+      }, { transaction: t });
+
       await t.commit();
       return successResponse(res, allocation, "Cập nhật phân bổ phòng thành công");
     } catch (error) {
       await t.rollback();
-      console.error("Error in update allocation:", error);
       if (error.name === 'SequelizeUniqueConstraintError') {
         return errorResponse(res, 409, "Cập nhật thất bại do thông tin trùng lặp.");
       }
@@ -156,15 +211,14 @@ export const phanBoPhongController = {
         return errorResponse(res, 404, "Không tìm thấy phân bổ phòng");
       }
 
-      // ... (soft delete logic)
-
+      allocation.dang_hien = false;
+      allocation.nguoi_cap_nhat = req.user?.id;
       await allocation.save({ transaction: t });
 
       await t.commit();
-      return successResponse(res, null, "Xóa mềm phân bổ phòng thành công"); // Changed data to null for soft delete
+      return successResponse(res, null, "Xóa mềm phân bổ phòng thành công");
     } catch (error) {
       await t.rollback();
-      console.error("Error in delete allocation:", error);
       return errorResponse(res, 500, "Lỗi server khi xóa phân bổ phòng", error.message);
     }
   },
