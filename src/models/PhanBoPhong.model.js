@@ -54,6 +54,12 @@ const PhanBoPhong = sequelize.define(
       type: DataTypes.TEXT,
       allowNull: true,
     },
+    // Thêm trường trạng thái thanh toán
+    trang_thai_thanh_toan: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false, // false = chưa thanh toán, true = đã thanh toán
+    },
     [COLUMNS.COMMON.DANG_HIEN]: {
       type: DataTypes.BOOLEAN,
       allowNull: false,

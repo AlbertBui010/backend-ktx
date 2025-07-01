@@ -10,6 +10,7 @@ import {
 import sequelize from "../config/database.config.js";
 import { Op } from "sequelize";
 import crypto from "crypto";
+import { calculateQuarterEndDate } from "../utils/quater.util.js";
 
 export const registrationController = {
   // Create new registration
@@ -128,19 +129,19 @@ export const registrationController = {
             ],
             where: search
               ? {
-                  [sequelize.Op.or]: [
-                    {
-                      [COLUMNS.SINH_VIEN.TEN]: {
-                        [sequelize.Op.iLike]: `%${search}%`,
-                      },
+                [sequelize.Op.or]: [
+                  {
+                    [COLUMNS.SINH_VIEN.TEN]: {
+                      [sequelize.Op.iLike]: `%${search}%`,
                     },
-                    {
-                      [COLUMNS.SINH_VIEN.MSSV]: {
-                        [sequelize.Op.iLike]: `%${search}%`,
-                      },
+                  },
+                  {
+                    [COLUMNS.SINH_VIEN.MSSV]: {
+                      [sequelize.Op.iLike]: `%${search}%`,
                     },
-                  ],
-                }
+                  },
+                ],
+              }
               : undefined,
           },
           {
@@ -327,14 +328,17 @@ export const registrationController = {
           },
           { transaction },
         );
-
+        const { endDate /*, soDonViThang*/ } = calculateQuarterEndDate(
+          registration[COLUMNS.PHIEU_DANG_KY_KTX.NGAY_BAT_DAU]
+        );
         // === THÊM ĐOẠN NÀY: TẠO PHÂN BỔ PHÒNG ===
         await PhanBoPhong.create({
           [COLUMNS.PHAN_BO_PHONG.ID_SV]: registration[COLUMNS.PHIEU_DANG_KY_KTX.ID_SINH_VIEN],
           [COLUMNS.PHAN_BO_PHONG.ID_GIUONG]: id_giuong,
           [COLUMNS.PHAN_BO_PHONG.NGAY_BAT_DAU]: registration[COLUMNS.PHIEU_DANG_KY_KTX.NGAY_BAT_DAU],
-          [COLUMNS.PHAN_BO_PHONG.NGAY_KET_THUC]: registration[COLUMNS.PHIEU_DANG_KY_KTX.NGAY_KET_THUC],
+          [COLUMNS.PHAN_BO_PHONG.NGAY_KET_THUC]: endDate,
           [COLUMNS.PHAN_BO_PHONG.TRANG_THAI]: "active", // hoặc ENUM_PHAN_BO_PHONG_TRANG_THAI.ACTIVE
+          [COLUMNS.PHAN_BO_PHONG.TRANG_THAI_THANH_TOAN]: false, // <-- thêm dòng này
           [COLUMNS.COMMON.NGUOI_TAO]: req.user.id,
           [COLUMNS.COMMON.NGUOI_CAP_NHAT]: req.user.id,
         }, { transaction });

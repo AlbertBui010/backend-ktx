@@ -73,7 +73,7 @@ export const phanBoPhongController = {
   create: async (req, res) => {
     const t = await sequelize.transaction();
     try {
-      const { id_sv, id_giuong, ngay_bat_dau, ngay_ket_thuc, trang_thai, ly_do_ket_thuc } = req.body;
+      const { id_sv, id_giuong, ngay_bat_dau, ngay_ket_thuc, trang_thai, ly_do_ket_thuc, trang_thai_thanh_toan } = req.body;
 
       if (!id_sv || !id_giuong || !ngay_bat_dau) {
         await t.rollback();
@@ -116,6 +116,7 @@ export const phanBoPhongController = {
         ngay_ket_thuc: ngay_ket_thuc || null,
         trang_thai: trang_thai || ENUM_PHAN_BO_PHONG_TRANG_THAI.ACTIVE,
         ly_do_ket_thuc: ly_do_ket_thuc || null,
+        trang_thai_thanh_toan: trang_thai_thanh_toan ?? false, // <-- thêm dòng này
         dang_hien: true,
         nguoi_tao: req.user?.id,
         nguoi_cap_nhat: req.user?.id,
@@ -139,7 +140,7 @@ export const phanBoPhongController = {
     const t = await sequelize.transaction();
     try {
       const { id } = req.params;
-      const { id_sv, id_giuong, ngay_bat_dau, ngay_ket_thuc, trang_thai, ly_do_ket_thuc } = req.body;
+      const { id_sv, id_giuong, ngay_bat_dau, ngay_ket_thuc, trang_thai, ly_do_ket_thuc, trang_thai_thanh_toan } = req.body;
 
       const allocation = await PhanBoPhong.findByPk(id, { transaction: t });
       if (!allocation) {
@@ -184,6 +185,7 @@ export const phanBoPhongController = {
         ngay_ket_thuc: ngay_ket_thuc || null,
         trang_thai,
         ly_do_ket_thuc: ly_do_ket_thuc || null,
+        trang_thai_thanh_toan: trang_thai_thanh_toan ?? false, // <-- thêm dòng này
         nguoi_cap_nhat: req.user?.id,
       }, { transaction: t });
 

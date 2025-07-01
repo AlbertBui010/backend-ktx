@@ -1,71 +1,62 @@
 /**
- * Utility function để tính ngày kết thúc dựa trên quy tắc Quý
- * @param {string|Date} startDate - Ngày bắt đầu (format: YYYY-MM-DD hoặc Date object)
- * @returns {Object} - Object chứa thông tin chi tiết về tính toán
+ * TÍNH CHU KỲ & ĐƠN VỊ THÁNG PHẢI ĐÓNG (theo quý)
+ *
+ * Logic:
+ *   ┌─────────────┬───────────────┬──────────────┐
+ *   │  Tháng trong│  Ngày < 15    │  Ngày ≥ 15   │
+ *   │    quý      │               │              │
+ *   ├─────────────┼───────────────┼──────────────┤
+ *   │  Tháng 1    │   3 tháng     │   2.5 tháng  │
+ *   │  Tháng 2    │   2 tháng     │   1.5 tháng  │
+ *   │  Tháng 3    │   4 tháng (*) │   3.5 tháng  │
+ *   └─────────────┴───────────────┴──────────────┘
+ *   (*) gồm tháng 3 (trọn) + quý kế (3 tháng)
+ *
+ * @param {string|Date} startDate   YYYY-MM-DD hoặc Date
+ * @returns {{ endDate: Date, soDonViThang: number }}
  */
 export const calculateQuarterEndDate = (startDate) => {
-  try {
-    const ngay = new Date(startDate);
-    const nam = ngay.getFullYear();
-    const thang = ngay.getMonth();
+  const start = new Date(startDate);
+  if (Number.isNaN(start)) throw new Error("Invalid startDate");
 
-    const quy = Math.floor(thang / 3);
-    const ngayCanChuyen = new Date(nam, quy * 3 + 1, 15); // Ngày 15 tháng thứ 2 của quý
+  const day     = start.getDate();          // 1‑31
+  const month   = start.getMonth();         // 0‑11
+  const quarter = Math.floor(month / 3);    // 0‑3
+  const monthPos = month % 3;               // 0,1,2  (tháng 1‑2‑3 trong quý)
 
-    let quyKetThuc;
-    let namKetThuc = nam;
-    let thangBatDau = ngay.getMonth();
-    let soDonViThangDau;
+  let soDonViThang;
+  let endDate;
 
-    // Tính đơn vị tháng đầu tiên (tháng hiện tại)
-    if (ngay.getDate() <= 15) {
-      soDonViThangDau = 1;
-    } else {
-      soDonViThangDau = 0.5;
-    }
-
-    // Quyết định quý kết thúc
-    if (ngay <= ngayCanChuyen) {
-      quyKetThuc = quy;
-    } else {
-      quyKetThuc = quy + 1;
-      if (quyKetThuc > 3) {
-        quyKetThuc = 0;
-        namKetThuc += 1;
-      }
-    }
-
-    // Tính tháng kết thúc của quý
-    const thangKetThuc = quyKetThuc * 3 + 2;
-    const ngayKetThuc = new Date(namKetThuc, thangKetThuc + 1, 0);
-    ngayKetThuc.setHours(12); // tránh lệch timezone
-
-    // Tính số tháng trọn từ tháng sau tháng bắt đầu đến tháng kết thúc
-    let tongThang = 0;
-    let thangHienTai = thangBatDau + 1;
-    let namHienTai = nam;
-
-    while (namHienTai < namKetThuc || (namHienTai === namKetThuc && thangHienTai <= thangKetThuc)) {
-      tongThang += 1;
-      thangHienTai++;
-      if (thangHienTai > 11) {
-        thangHienTai = 0;
-        namHienTai++;
-      }
-    }
-
-    const tongDonViThang = soDonViThangDau + tongThang;
-
-    return {
-      endDate: ngayKetThuc,
-      soDonViThang: tongDonViThang,
-    };
-  } catch (error) {
-    throw new Error(`Quarter calculation failed: ${error.message}`);
+  /* ---------- Xác định đơn vị tháng phải đóng ---------- */
+  switch (monthPos) {
+    case 0:               // Tháng đầu quý
+      soDonViThang = day < 15 ? 3   : 2.5;
+      break;
+    case 1:               // Tháng thứ 2
+      soDonViThang = day < 15 ? 2   : 1.5;
+      break;
+    case 2:               // Tháng thứ 3
+      soDonViThang = day < 15 ? 4   : 3.5;
+      break;
   }
+
+  /* ---------- Tính endDate (ngày cuối cùng cần thanh toán) ---------- */
+  if (monthPos === 2) {
+    // Sang quý kế tiếp
+    const nextQ  = (quarter + 1) % 4;
+    const yEnd   = quarter === 3 ? start.getFullYear() + 1 : start.getFullYear();
+    const mEnd   = nextQ * 3 + 2;               // tháng thứ 3 của quý kế (0‑based)
+    endDate      = new Date(yEnd, mEnd + 1, 0); // cuối tháng đó
+  } else {
+    // Kết thúc ngay cuối quý hiện tại
+    const mEnd = quarter * 3 + 2;               // tháng 3 của chính quý
+    endDate    = new Date(start.getFullYear(), mEnd + 1, 0);
+  }
+
+  // Khoá 12 h tránh lệch TZ
+  endDate.setHours(12, 0, 0, 0);
+
+  return { endDate, soDonViThang };
 };
 
-// Export all functions
-export default {
-  calculateQuarterEndDate,
-};
+export default { calculateQuarterEndDate };

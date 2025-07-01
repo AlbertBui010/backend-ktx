@@ -261,6 +261,7 @@ export const COLUMNS = {
     NGAY_KET_THUC: "ngay_ket_thuc",
     TRANG_THAI: "trang_thai",
     LY_DO_KET_THUC: "ly_do_ket_thuc",
+    TRANG_THAI_THANH_TOAN: "trang_thai_thanh_toan", 
   },
   PHIEU_DANG_KY_KTX: {
     ID_SINH_VIEN: "id_sinh_vien",
