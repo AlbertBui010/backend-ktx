@@ -9,6 +9,7 @@ import PhieuDangKy from "./PhieuDangKy.model.js";
 import BangTin from "./BangTin.model.js";
 import ChuDe from "./ChuDe.model.js";
 import PhanBoPhong from "./PhanBoPhong.model.js";
+import HoaDonPhanBoPhong from "./HoaDonPhanBoPhong.model.js";
 import { COLUMNS } from "../constants/database.constants.js";
 // Define associations
 // Staff/Admin associations
@@ -75,7 +76,15 @@ PhanBoPhong.belongsTo(SinhVien, { foreignKey: "id_sv", as: "Student" });
 Giuong.hasMany(PhanBoPhong, { foreignKey: "id_giuong", as: "RoomAssignments" });
 PhanBoPhong.belongsTo(Giuong, { foreignKey: "id_giuong", as: "Bed" });
 
-export { NhanVien, SinhVien, LoaiPhong, Phong, Giuong, PhuHuynh, PhieuDangKy, BangTin, ChuDe, PhanBoPhong };
+
+PhanBoPhong.hasOne(HoaDonPhanBoPhong, {
+  foreignKey: COLUMNS.HD_PHAN_BO_PHONG.ID_PHAN_BO_PHONG,
+});
+HoaDonPhanBoPhong.belongsTo(PhanBoPhong, {
+  foreignKey: COLUMNS.HD_PHAN_BO_PHONG.ID_PHAN_BO_PHONG,
+});
+
+export { NhanVien, SinhVien, LoaiPhong, Phong, Giuong, PhuHuynh, PhieuDangKy, BangTin, ChuDe, PhanBoPhong, HoaDonPhanBoPhong };
 
 export default {
   NhanVien,
@@ -88,4 +97,5 @@ export default {
   BangTin,
   ChuDe,
   PhanBoPhong,
+  HoaDonPhanBoPhong,
 };
