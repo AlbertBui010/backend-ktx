@@ -1,4 +1,4 @@
-import { PhieuDangKy, SinhVien, Giuong, Phong, LoaiPhong, NhanVien, PhanBoPhong } from "../models/index.js";
+import { PhieuDangKy, SinhVien, Giuong, Phong, LoaiPhong, NhanVien, PhanBoPhong, HoaDonPhanBoPhong } from "../models/index.js";
 import { successResponse, errorResponse } from "../utils/response.util.js";
 import { emailUtils } from "../utils/email.util.js";
 import {
@@ -332,17 +332,31 @@ export const registrationController = {
           registration[COLUMNS.PHIEU_DANG_KY_KTX.NGAY_BAT_DAU]
         );
         // === THÊM ĐOẠN NÀY: TẠO PHÂN BỔ PHÒNG ===
-        await PhanBoPhong.create({
+        const phanBo = await PhanBoPhong.create({
           [COLUMNS.PHAN_BO_PHONG.ID_SV]: registration[COLUMNS.PHIEU_DANG_KY_KTX.ID_SINH_VIEN],
           [COLUMNS.PHAN_BO_PHONG.ID_GIUONG]: id_giuong,
           [COLUMNS.PHAN_BO_PHONG.NGAY_BAT_DAU]: registration[COLUMNS.PHIEU_DANG_KY_KTX.NGAY_BAT_DAU],
           [COLUMNS.PHAN_BO_PHONG.NGAY_KET_THUC]: endDate,
-          [COLUMNS.PHAN_BO_PHONG.TRANG_THAI]: "active", // hoặc ENUM_PHAN_BO_PHONG_TRANG_THAI.ACTIVE
-          [COLUMNS.PHAN_BO_PHONG.TRANG_THAI_THANH_TOAN]: false, // <-- thêm dòng này
+          [COLUMNS.PHAN_BO_PHONG.TRANG_THAI]: "active",
+          [COLUMNS.PHAN_BO_PHONG.TRANG_THAI_THANH_TOAN]: false,
           [COLUMNS.COMMON.NGUOI_TAO]: req.user.id,
           [COLUMNS.COMMON.NGUOI_CAP_NHAT]: req.user.id,
         }, { transaction });
+        console.log("phanBo:", phanBo?.id);
         // =========================================
+        // ❶ TÍNH TIỀN & TẠO HÓA ĐƠN PENDING
+        const { soDonViThang } = calculateQuarterEndDate(
+          registration[COLUMNS.PHIEU_DANG_KY_KTX.NGAY_BAT_DAU]
+        );
+        const pricePerMonth = bed.Room.RoomType[COLUMNS.LOAI_PHONG.GIA_THUE] ?? 0;
+        const totalAmount = pricePerMonth * soDonViThang;
+
+        console.log("phanBo:", phanBo?.id, "pricePerMonth:", pricePerMonth, "soDonViThang:", soDonViThang, "totalAmount:", totalAmount);
+
+        await HoaDonPhanBoPhong.create({
+          [COLUMNS.HD_PHAN_BO_PHONG.ID_PHAN_BO_PHONG]: phanBo.id,
+          [COLUMNS.HD_PHAN_BO_PHONG.SO_TIEN_THANH_TOAN]: totalAmount,
+        }, { transaction });
 
         // Generate password setup token if student doesn't have password
         if (!registration.Student[COLUMNS.SINH_VIEN.MAT_KHAU]) {

@@ -79,9 +79,11 @@ PhanBoPhong.belongsTo(Giuong, { foreignKey: "id_giuong", as: "Bed" });
 
 PhanBoPhong.hasOne(HoaDonPhanBoPhong, {
   foreignKey: COLUMNS.HD_PHAN_BO_PHONG.ID_PHAN_BO_PHONG,
+  as: "Invoice",
 });
 HoaDonPhanBoPhong.belongsTo(PhanBoPhong, {
   foreignKey: COLUMNS.HD_PHAN_BO_PHONG.ID_PHAN_BO_PHONG,
+  as: "Allocation",
 });
 
 export { NhanVien, SinhVien, LoaiPhong, Phong, Giuong, PhuHuynh, PhieuDangKy, BangTin, ChuDe, PhanBoPhong, HoaDonPhanBoPhong };

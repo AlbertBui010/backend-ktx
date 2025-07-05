@@ -224,4 +224,33 @@ export const phanBoPhongController = {
       return errorResponse(res, 500, "Lỗi server khi xóa phân bổ phòng", error.message);
     }
   },
+  /**
+ * Lấy phân bổ phòng đang active của sinh viên đang đăng nhập
+ */
+getActiveAllocation: async (req, res) => {
+  try {
+    const userId = req.user?.id; // user id từ token đã giải mã
+    if (!userId) {
+      return errorResponse(res, 401, "Không có quyền truy cập");
+    }
+
+    // Tìm phân bổ phòng đang active (dang_hien=true và ngay_ket_thuc=null) của sinh viên
+    const allocation = await PhanBoPhong.findOne({
+      where: {
+        [COLUMNS.PHAN_BO_PHONG.ID_SV]: userId,
+        [COLUMNS.COMMON.DANG_HIEN]: true,
+      },
+      attributes: [COLUMNS.COMMON.ID], // chỉ lấy id để trả về
+    });
+
+    if (!allocation) {
+      return successResponse(res, null, "Sinh viên chưa có phân bổ phòng đang active");
+    }
+
+    return successResponse(res, { id_allocation: allocation[COLUMNS.COMMON.ID] });
+  } catch (error) {
+    return errorResponse(res, 500, "Lỗi server khi lấy phân bổ phòng active", error.message);
+  }
+},
+
 };
