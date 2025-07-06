@@ -10,6 +10,9 @@ import BangTin from "./BangTin.model.js";
 import ChuDe from "./ChuDe.model.js";
 import PhanBoPhong from "./PhanBoPhong.model.js";
 import HoaDonPhanBoPhong from "./HoaDonPhanBoPhong.model.js";
+import DonGiaDien from "./DonGiaDien.model.js";
+import HdTienDien from "./HdTienDien.model.js";
+import HdTienDienSinhVien from "./HdTienDienSinhVien.model.js";
 import { COLUMNS } from "../constants/database.constants.js";
 // Define associations
 // Staff/Admin associations
@@ -76,7 +79,6 @@ PhanBoPhong.belongsTo(SinhVien, { foreignKey: "id_sv", as: "Student" });
 Giuong.hasMany(PhanBoPhong, { foreignKey: "id_giuong", as: "RoomAssignments" });
 PhanBoPhong.belongsTo(Giuong, { foreignKey: "id_giuong", as: "Bed" });
 
-
 PhanBoPhong.hasOne(HoaDonPhanBoPhong, {
   foreignKey: COLUMNS.HD_PHAN_BO_PHONG.ID_PHAN_BO_PHONG,
   as: "Invoice",
@@ -86,7 +88,44 @@ HoaDonPhanBoPhong.belongsTo(PhanBoPhong, {
   as: "Allocation",
 });
 
-export { NhanVien, SinhVien, LoaiPhong, Phong, Giuong, PhuHuynh, PhieuDangKy, BangTin, ChuDe, PhanBoPhong, HoaDonPhanBoPhong };
+// Electricity billing associations
+// DonGiaDien associations
+DonGiaDien.hasMany(HdTienDien, { foreignKey: "id_don_gia_dien", as: "ElectricityBills" });
+DonGiaDien.belongsTo(NhanVien, { foreignKey: "nguoi_tao", as: "Creator" });
+
+// HdTienDien associations
+HdTienDien.belongsTo(Phong, { foreignKey: "id_phong", as: "Room" });
+HdTienDien.belongsTo(DonGiaDien, { foreignKey: "id_don_gia_dien", as: "ElectricityRate" });
+HdTienDien.hasMany(HdTienDienSinhVien, { foreignKey: "id_hd_tien_dien", as: "StudentBills" });
+HdTienDien.belongsTo(NhanVien, { foreignKey: "nguoi_tao", as: "Creator" });
+
+// HdTienDienSinhVien associations
+HdTienDienSinhVien.belongsTo(HdTienDien, { foreignKey: "id_hd_tien_dien", as: "ElectricityBill" });
+HdTienDienSinhVien.belongsTo(SinhVien, { foreignKey: "id_sinh_vien", as: "Student" });
+HdTienDienSinhVien.belongsTo(PhanBoPhong, { foreignKey: "id_phan_bo_phong", as: "RoomAllocation" });
+HdTienDienSinhVien.belongsTo(NhanVien, { foreignKey: "nguoi_tao", as: "Creator" });
+
+// Reverse associations
+Phong.hasMany(HdTienDien, { foreignKey: "id_phong", as: "ElectricityBills" });
+SinhVien.hasMany(HdTienDienSinhVien, { foreignKey: "id_sinh_vien", as: "ElectricityBills" });
+PhanBoPhong.hasMany(HdTienDienSinhVien, { foreignKey: "id_phan_bo_phong", as: "ElectricityBills" });
+
+export {
+  NhanVien,
+  SinhVien,
+  LoaiPhong,
+  Phong,
+  Giuong,
+  PhuHuynh,
+  PhieuDangKy,
+  BangTin,
+  ChuDe,
+  PhanBoPhong,
+  HoaDonPhanBoPhong,
+  DonGiaDien,
+  HdTienDien,
+  HdTienDienSinhVien,
+};
 
 export default {
   NhanVien,
@@ -100,4 +139,7 @@ export default {
   ChuDe,
   PhanBoPhong,
   HoaDonPhanBoPhong,
+  DonGiaDien,
+  HdTienDien,
+  HdTienDienSinhVien,
 };
