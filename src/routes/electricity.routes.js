@@ -1,8 +1,10 @@
 import express from "express";
 import { electricityController } from "../controllers/electricity.controller.js";
-import { authenticateToken } from "../middleware/auth.middleware.js";
+import { authenticateToken, requireAdmin } from "../middleware/auth.middleware.js";
 import { validationMiddleware } from "../middleware/validation.middleware.js";
 import { body, param, query } from "express-validator";
+import { Op } from "sequelize";
+import { HdTienDien } from "../models/index.js";
 
 const router = express.Router();
 
@@ -122,6 +124,47 @@ const statisticsValidation = [
   query("year").optional().isInt({ min: 2020, max: 2100 }).withMessage("Năm phải trong khoảng 2020-2100"),
 ];
 
+// Validation để ngăn tạo trùng hóa đơn phòng trong cùng kỳ
+const duplicateRoomBillValidation = [
+  body("id_phong").custom(async (value, { req }) => {
+    const { tu_ngay, den_ngay } = req.body;
+
+    const existingBill = await HdTienDien.findOne({
+      where: {
+        id_phong: value,
+        dang_hien: true,
+        [Op.or]: [
+          {
+            tu_ngay: { [Op.between]: [tu_ngay, den_ngay] },
+          },
+          {
+            den_ngay: { [Op.between]: [tu_ngay, den_ngay] },
+          },
+          {
+            [Op.and]: [{ tu_ngay: { [Op.lte]: tu_ngay } }, { den_ngay: { [Op.gte]: den_ngay } }],
+          },
+        ],
+      },
+    });
+
+    if (existingBill) {
+      throw new Error("Đã có hóa đơn điện cho phòng này trong khoảng thời gian trùng lặp");
+    }
+    return true;
+  }),
+];
+
+// Validation ngăn chỉnh sửa hóa đơn đã finalized
+const preventFinalizedEditValidation = [
+  param("id").custom(async (value) => {
+    const bill = await HdTienDien.findByPk(value);
+    if (bill && bill.trang_thai === "finalized") {
+      throw new Error("Không thể chỉnh sửa hóa đơn đã hoàn thiện");
+    }
+    return true;
+  }),
+];
+
 // ===== ĐỔN GIÁ ĐIỆN ROUTES =====
 
 /**
@@ -161,6 +204,7 @@ router.post(
   "/room-bills",
   authenticateToken,
   createRoomElectricityBillValidation,
+  duplicateRoomBillValidation,
   validationMiddleware,
   electricityController.createRoomElectricityBill,
 );
@@ -257,12 +301,105 @@ router.put(
  * @desc    Thống kê tiền điện
  * @access  Private (Admin only)
  */
-router.get(
-  "/statistics",
+router.get("/statistics", authenticateToken, requireAdmin, electricityController.getElectricityStatistics);
+
+// ===== CÁC ROUTE BỔ SUNG CẦN THIẾT =====
+
+/**
+ * @route   PUT /api/electricity/room-bills/:id
+ * @desc    Cập nhật hóa đơn tiền điện phòng (chỉ khi draft)
+ * @access  Private (Admin only)
+ */
+router.put(
+  "/room-bills/:id",
   authenticateToken,
-  statisticsValidation,
+  requireAdmin,
+  preventFinalizedEditValidation,
+  createRoomElectricityBillValidation,
   validationMiddleware,
-  electricityController.getElectricityStatistics,
+  electricityController.updateRoomElectricityBill,
+);
+
+/**
+ * @route   DELETE /api/electricity/room-bills/:id
+ * @desc    Xóa hóa đơn tiền điện phòng (chỉ khi draft)
+ * @access  Private (Admin only)
+ */
+router.delete(
+  "/room-bills/:id",
+  authenticateToken,
+  requireAdmin,
+  preventFinalizedEditValidation,
+  idValidation,
+  validationMiddleware,
+  electricityController.deleteRoomElectricityBill,
+);
+
+/**
+ * @route   POST /api/electricity/bulk-create
+ * @desc    Tạo hóa đơn điện hàng loạt cho nhiều phòng
+ * @access  Private (Admin only)
+ */
+router.post(
+  "/bulk-create",
+  authenticateToken,
+  requireAdmin,
+  [
+    body("bills").isArray().withMessage("Bills phải là mảng"),
+    body("bills.*.id_phong").isInt({ min: 1 }).withMessage("ID phòng phải là số nguyên dương"),
+    body("bills.*.tu_ngay").isISO8601().withMessage("Ngày bắt đầu phải có định dạng YYYY-MM-DD"),
+    body("bills.*.den_ngay").isISO8601().withMessage("Ngày kết thúc phải có định dạng YYYY-MM-DD"),
+    body("bills.*.so_dien_cu").isInt({ min: 0 }).withMessage("Số điện cũ phải là số nguyên không âm"),
+    body("bills.*.so_dien_moi").isInt({ min: 0 }).withMessage("Số điện mới phải là số nguyên không âm"),
+  ],
+  validationMiddleware,
+  electricityController.bulkCreateRoomBills,
+);
+
+/**
+ * @route   GET /api/electricity/room-bills/:id/preview
+ * @desc    Preview tính toán tiền điện sinh viên (không lưu vào DB)
+ * @access  Private (Admin only)
+ */
+router.get(
+  "/room-bills/:id/preview",
+  authenticateToken,
+  requireAdmin,
+  idValidation,
+  validationMiddleware,
+  electricityController.previewStudentCalculation,
+);
+
+/**
+ * @route   PUT /api/electricity/student-bills/:id/cancel
+ * @desc    Hủy hóa đơn sinh viên
+ * @access  Private (Admin only)
+ */
+router.put(
+  "/student-bills/:id/cancel",
+  authenticateToken,
+  requireAdmin,
+  idValidation,
+  validationMiddleware,
+  electricityController.cancelStudentBill,
+);
+
+/**
+ * @route   GET /api/electricity/export/excel
+ * @desc    Xuất báo cáo Excel
+ * @access  Private (Admin only)
+ */
+router.get(
+  "/export/excel",
+  authenticateToken,
+  requireAdmin,
+  [
+    query("month").optional().isInt({ min: 1, max: 12 }).withMessage("Tháng phải là số từ 1-12"),
+    query("year").optional().isInt({ min: 2020, max: 2100 }).withMessage("Năm phải trong khoảng 2020-2100"),
+    query("id_phong").optional().isInt({ min: 1 }).withMessage("ID phòng phải là số nguyên dương"),
+  ],
+  validationMiddleware,
+  electricityController.exportExcel,
 );
 
 export default router;

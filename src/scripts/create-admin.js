@@ -5,10 +5,12 @@ import { passwordUtils } from "../utils/password.util.js";
 import { COLUMNS, ENUM_NHAN_VIEN_ROLE, ENUM_NHAN_VIEN_TRANG_THAI } from "../constants/database.constants.js";
 
 dotenv.config();
+const uniqueId = Math.random().toString(36).substring(2, 8);
+console.log("Unique ID for admin user:", uniqueId);
 const ADMIN_DATA = {
-  username: "ADMIN111",
-  password: "ADMIN111",
-  email: "ADMIN111@gmail.com",
+  username: "ADMIN" + uniqueId,
+  password: "ADMIN" + uniqueId + "123",
+  email: "ADMIN" + uniqueId + "@gmail.com",
 };
 
 const createAdminUser = async () => {

@@ -1,4 +1,4 @@
-import { Op, fn, col } from "sequelize";
+import { Op, fn, col, literal } from "sequelize";
 import { DonGiaDien, HdTienDien, HdTienDienSinhVien, Phong, SinhVien, PhanBoPhong } from "../models/index.js";
 import { successResponse, errorResponse } from "../utils/response.util.js";
 import { electricityUtils } from "../utils/electricity.util.js";
@@ -459,70 +459,294 @@ export const electricityController = {
    */
   getElectricityStatistics: async (req, res) => {
     try {
-      const { month, year } = req.query;
+      console.log("Getting electricity statistics...");
 
-      let dateFilter = {};
-      if (month && year) {
-        const startDate = new Date(year, month - 1, 1);
-        const endDate = new Date(year, month, 0);
-        dateFilter = {
-          [COLUMNS.HD_TIEN_DIEN.TU_NGAY]: { [Op.gte]: startDate },
-          [COLUMNS.HD_TIEN_DIEN.DEN_NGAY]: { [Op.lte]: endDate },
-        };
-      } else if (year) {
-        const startDate = new Date(year, 0, 1);
-        const endDate = new Date(year, 11, 31);
-        dateFilter = {
-          [COLUMNS.HD_TIEN_DIEN.TU_NGAY]: { [Op.gte]: startDate },
-          [COLUMNS.HD_TIEN_DIEN.DEN_NGAY]: { [Op.lte]: endDate },
-        };
+      // Basic counts
+      const roomBillCount = await HdTienDien.count();
+      const studentBillCount = await HdTienDienSinhVien.count();
+      const electricityRateCount = await DonGiaDien.count();
+
+      // Room bill statistics by status
+      const roomBillsByStatus = await HdTienDien.findAll({
+        attributes: ["trang_thai", [fn("COUNT", col("id")), "count"]],
+        group: ["trang_thai"],
+        raw: true,
+      });
+
+      // Student bill statistics by payment status
+      const studentBillsByPaymentStatus = await HdTienDienSinhVien.findAll({
+        attributes: [
+          "trang_thai_thanh_toan",
+          [fn("COUNT", col("id")), "count"],
+          [fn("SUM", col("so_tien_phai_tra")), "total_amount"],
+          [fn("SUM", col("so_tien_da_tra")), "paid_amount"],
+        ],
+        group: ["trang_thai_thanh_toan"],
+        raw: true,
+      });
+
+      // Total amounts
+      const totalAmountStats = await HdTienDienSinhVien.findOne({
+        attributes: [
+          [fn("SUM", col("so_tien_phai_tra")), "total_bill_amount"],
+          [fn("SUM", col("so_tien_da_tra")), "total_paid_amount"],
+          [fn("COUNT", col("id")), "total_bills"],
+        ],
+        raw: true,
+      });
+
+      // Monthly statistics for current year
+      const currentYear = new Date().getFullYear();
+      const monthlyStats = await HdTienDien.findAll({
+        attributes: [
+          [literal(`EXTRACT(MONTH FROM tu_ngay)`), "month"],
+          [fn("COUNT", col("id")), "bill_count"],
+          [fn("SUM", col("thanh_tien")), "total_amount"],
+        ],
+        where: literal(`EXTRACT(YEAR FROM tu_ngay) = ${currentYear}`),
+        group: [literal("EXTRACT(MONTH FROM tu_ngay)")],
+        order: [[literal("EXTRACT(MONTH FROM tu_ngay)"), "ASC"]],
+        raw: true,
+      });
+
+      const stats = {
+        overview: {
+          totalElectricityRates: electricityRateCount,
+          totalRoomBills: roomBillCount,
+          totalStudentBills: studentBillCount,
+          totalBillAmount: parseFloat(totalAmountStats?.total_bill_amount || 0),
+          totalPaidAmount: parseFloat(totalAmountStats?.total_paid_amount || 0),
+          totalUnpaidAmount:
+            parseFloat(totalAmountStats?.total_bill_amount || 0) - parseFloat(totalAmountStats?.total_paid_amount || 0),
+        },
+        roomBillsByStatus: roomBillsByStatus.reduce((acc, item) => {
+          acc[item.trang_thai] = parseInt(item.count);
+          return acc;
+        }, {}),
+        studentBillsByPaymentStatus: studentBillsByPaymentStatus.reduce((acc, item) => {
+          acc[item.trang_thai_thanh_toan] = {
+            count: parseInt(item.count),
+            totalAmount: parseFloat(item.total_amount || 0),
+            paidAmount: parseFloat(item.paid_amount || 0),
+          };
+          return acc;
+        }, {}),
+        monthlyStats: monthlyStats.map((item) => ({
+          month: parseInt(item.month),
+          billCount: parseInt(item.bill_count),
+          totalAmount: parseFloat(item.total_amount || 0),
+        })),
+        paymentRate:
+          totalAmountStats?.total_bill_amount > 0
+            ? (
+                (parseFloat(totalAmountStats.total_paid_amount || 0) / parseFloat(totalAmountStats.total_bill_amount)) *
+                100
+              ).toFixed(2)
+            : 0,
+      };
+
+      return successResponse(res, stats);
+    } catch (error) {
+      console.error("Statistics error:", error);
+      return errorResponse(res, 500, "Không thể lấy thống kê tiền điện", error.message);
+    }
+  },
+
+  /**
+   * Cập nhật hóa đơn tiền điện phòng
+   */
+  updateRoomElectricityBill: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { id_phong, tu_ngay, den_ngay, so_dien_cu, so_dien_moi, ghi_chu } = req.body;
+
+      const bill = await HdTienDien.findByPk(id);
+      if (!bill) {
+        return errorResponse(res, 404, "Hóa đơn không tồn tại");
       }
 
-      // Thống kê hóa đơn phòng
-      const roomBillsStats = await HdTienDien.findAll({
-        where: {
-          [COLUMNS.COMMON.DANG_HIEN]: true,
-          ...dateFilter,
-        },
-        attributes: [
-          [COLUMNS.HD_TIEN_DIEN.TRANG_THAI, "status"],
-          [fn("COUNT"), "count"],
-          [fn("SUM", col(COLUMNS.HD_TIEN_DIEN.THANH_TIEN)), "total_amount"],
-        ],
-        group: [COLUMNS.HD_TIEN_DIEN.TRANG_THAI],
+      if (bill.trang_thai !== "draft") {
+        return errorResponse(res, 400, "Chỉ có thể cập nhật hóa đơn ở trạng thái draft");
+      }
+
+      // Tìm đơn giá điện phù hợp
+      const electricityRate = await electricityUtils.getElectricityRateForDate(new Date(tu_ngay));
+      if (!electricityRate) {
+        return errorResponse(res, 400, "Không tìm thấy đơn giá điện phù hợp");
+      }
+
+      // Tính toán
+      const so_dien_tieu_thu = so_dien_moi - so_dien_cu;
+
+      const updatedBill = await bill.update({
+        id_phong,
+        tu_ngay,
+        den_ngay,
+        so_dien_cu,
+        so_dien_moi,
+        id_don_gia_dien: electricityRate.id,
+        so_dien_tieu_thu,
+        ghi_chu,
+        nguoi_cap_nhat: req.user.id,
       });
 
-      // Thống kê thanh toán sinh viên
-      const studentPaymentStats = await HdTienDienSinhVien.findAll({
-        where: {
-          [COLUMNS.COMMON.DANG_HIEN]: true,
-        },
-        include: [
-          {
-            model: HdTienDien,
-            as: "ElectricityBill",
-            where: {
-              [COLUMNS.COMMON.DANG_HIEN]: true,
-              ...dateFilter,
-            },
-            attributes: [],
-          },
-        ],
-        attributes: [
-          [COLUMNS.HD_TIEN_DIEN_SINH_VIEN.TRANG_THAI_THANH_TOAN, "payment_status"],
-          [fn("COUNT"), "count"],
-          [fn("SUM", col(COLUMNS.HD_TIEN_DIEN_SINH_VIEN.SO_TIEN_PHAI_TRA)), "total_amount"],
-          [fn("SUM", col(COLUMNS.HD_TIEN_DIEN_SINH_VIEN.SO_TIEN_DA_TRA)), "paid_amount"],
-        ],
-        group: [COLUMNS.HD_TIEN_DIEN_SINH_VIEN.TRANG_THAI_THANH_TOAN],
-      });
+      return successResponse(res, updatedBill);
+    } catch (error) {
+      return errorResponse(res, 500, "Không thể cập nhật hóa đơn", error.message);
+    }
+  },
+
+  /**
+   * Xóa hóa đơn tiền điện phòng
+   */
+  deleteRoomElectricityBill: async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      const bill = await HdTienDien.findByPk(id);
+      if (!bill) {
+        return errorResponse(res, 404, "Hóa đơn không tồn tại");
+      }
+
+      if (bill.trang_thai !== "draft") {
+        return errorResponse(res, 400, "Chỉ có thể xóa hóa đơn ở trạng thái draft");
+      }
+
+      // Xóa soft delete
+      await bill.update({ dang_hien: false });
+
+      return successResponse(res, { message: "Hóa đơn đã được xóa" });
+    } catch (error) {
+      return errorResponse(res, 500, "Không thể xóa hóa đơn", error.message);
+    }
+  },
+
+  /**
+   * Tạo hóa đơn hàng loạt
+   */
+  bulkCreateRoomBills: async (req, res) => {
+    try {
+      const { bills } = req.body;
+      const results = [];
+      const errors = [];
+
+      for (let i = 0; i < bills.length; i++) {
+        try {
+          const billData = bills[i];
+
+          // Tìm đơn giá điện
+          const electricityRate = await electricityUtils.getElectricityRateForDate(new Date(billData.tu_ngay));
+          if (!electricityRate) {
+            errors.push({ index: i, error: "Không tìm thấy đơn giá điện phù hợp" });
+            continue;
+          }
+
+          const so_dien_tieu_thu = billData.so_dien_moi - billData.so_dien_cu;
+
+          const newBill = await HdTienDien.create({
+            ...billData,
+            id_don_gia_dien: electricityRate.id,
+            so_dien_tieu_thu,
+            thanh_tien: 0,
+            trang_thai: "draft",
+            nguoi_tao: req.user.id,
+          });
+
+          results.push(newBill);
+        } catch (error) {
+          errors.push({ index: i, error: error.message });
+        }
+      }
 
       return successResponse(res, {
-        roomBills: roomBillsStats,
-        studentPayments: studentPaymentStats,
+        created: results.length,
+        errors: errors.length,
+        results,
+        errors,
       });
     } catch (error) {
-      return errorResponse(res, 500, "Không thể lấy thống kê tiền điện", error.message);
+      return errorResponse(res, 500, "Không thể tạo hóa đơn hàng loạt", error.message);
+    }
+  },
+
+  /**
+   * Preview tính toán tiền điện sinh viên
+   */
+  previewStudentCalculation: async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      const hdTienDien = await HdTienDien.findOne({
+        where: { id, dang_hien: true },
+        include: [
+          { model: Phong, as: "Room" },
+          { model: DonGiaDien, as: "ElectricityRate" },
+        ],
+      });
+
+      if (!hdTienDien) {
+        return errorResponse(res, 404, "Hóa đơn không tồn tại");
+      }
+
+      // Tính toán preview mà không lưu vào DB
+      const studentsWithAmounts = await electricityUtils.calculateStudentPortions(
+        hdTienDien.id_phong,
+        hdTienDien.tu_ngay,
+        hdTienDien.den_ngay,
+        hdTienDien.so_dien_tieu_thu,
+        hdTienDien.ElectricityRate.don_gia,
+      );
+
+      return successResponse(res, {
+        hdTienDien,
+        preview: studentsWithAmounts,
+        note: "Đây chỉ là preview, chưa được lưu vào database",
+      });
+    } catch (error) {
+      return errorResponse(res, 500, "Không thể preview tính toán", error.message);
+    }
+  },
+
+  /**
+   * Hủy hóa đơn sinh viên
+   */
+  cancelStudentBill: async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      const bill = await HdTienDienSinhVien.findByPk(id);
+      if (!bill) {
+        return errorResponse(res, 404, "Hóa đơn sinh viên không tồn tại");
+      }
+
+      if (bill.trang_thai_thanh_toan === "paid") {
+        return errorResponse(res, 400, "Không thể hủy hóa đơn đã thanh toán");
+      }
+
+      await bill.update({
+        trang_thai_thanh_toan: "cancelled",
+        nguoi_cap_nhat: req.user.id,
+      });
+
+      return successResponse(res, { message: "Hóa đơn sinh viên đã được hủy" });
+    } catch (error) {
+      return errorResponse(res, 500, "Không thể hủy hóa đơn", error.message);
+    }
+  },
+
+  /**
+   * Xuất báo cáo Excel
+   */
+  exportExcel: async (req, res) => {
+    try {
+      // Placeholder cho tính năng export Excel
+      // Cần cài đặt thư viện như xlsx, exceljs
+      return successResponse(res, {
+        message: "Tính năng export Excel sẽ được triển khai sau",
+        downloadUrl: "/api/electricity/reports/sample.xlsx",
+      });
+    } catch (error) {
+      return errorResponse(res, 500, "Không thể xuất báo cáo", error.message);
     }
   },
 };
