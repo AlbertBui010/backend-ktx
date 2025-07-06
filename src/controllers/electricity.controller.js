@@ -2,6 +2,7 @@ import { Op, fn, col, literal } from "sequelize";
 import { DonGiaDien, HdTienDien, HdTienDienSinhVien, Phong, SinhVien, PhanBoPhong } from "../models/index.js";
 import { successResponse, errorResponse } from "../utils/response.util.js";
 import { electricityUtils } from "../utils/electricity.util.js";
+import { exportUtils } from "../utils/export.util.js";
 import {
   COLUMNS,
   ENUM_HD_TIEN_DIEN_TRANG_THAI,
@@ -739,14 +740,393 @@ export const electricityController = {
    */
   exportExcel: async (req, res) => {
     try {
-      // Placeholder cho tính năng export Excel
-      // Cần cài đặt thư viện như xlsx, exceljs
+      const { tu_ngay, den_ngay, include_students = true, include_rooms = true } = req.query;
+
+      // Validate date range
+      if (!tu_ngay || !den_ngay) {
+        return errorResponse(res, 400, "Vui lòng cung cấp khoảng thời gian (tu_ngay, den_ngay)");
+      }
+
+      const reportData = await electricityController.getReportData(
+        tu_ngay,
+        den_ngay,
+        include_students === "true",
+        include_rooms === "true",
+      );
+
+      const result = await exportUtils.exportElectricityReportToExcel(reportData);
+
+      // Set headers for file download
+      res.setHeader("Content-Type", result.mimeType);
+      res.setHeader("Content-Disposition", `attachment; filename="${result.fileName}"`);
+      res.setHeader("Content-Length", result.buffer.length);
+
+      return res.send(result.buffer);
+    } catch (error) {
+      return errorResponse(res, 500, "Không thể xuất báo cáo Excel", error.message);
+    }
+  },
+
+  /**
+   * Xuất báo cáo PDF
+   */
+  exportPDF: async (req, res) => {
+    try {
+      const { tu_ngay, den_ngay, include_students = true, include_rooms = true } = req.query;
+
+      // Validate date range
+      if (!tu_ngay || !den_ngay) {
+        return errorResponse(res, 400, "Vui lòng cung cấp khoảng thời gian (tu_ngay, den_ngay)");
+      }
+
+      const reportData = await electricityController.getReportData(
+        tu_ngay,
+        den_ngay,
+        include_students === "true",
+        include_rooms === "true",
+      );
+
+      const result = await exportUtils.exportElectricityReportToPDF(reportData);
+
+      // Set headers for file download
+      res.setHeader("Content-Type", result.mimeType);
+      res.setHeader("Content-Disposition", `attachment; filename="${result.fileName}"`);
+      res.setHeader("Content-Length", result.buffer.length);
+
+      return res.send(result.buffer);
+    } catch (error) {
+      return errorResponse(res, 500, "Không thể xuất báo cáo PDF", error.message);
+    }
+  },
+
+  /**
+   * Helper function để lấy dữ liệu báo cáo
+   */
+  getReportData: async (tuNgay, denNgay, includeStudents = true, includeRooms = true) => {
+    const dateStart = new Date(tuNgay);
+    const dateEnd = new Date(denNgay);
+
+    // Get room bills
+    let roomBills = [];
+    if (includeRooms) {
+      roomBills = await HdTienDien.findAll({
+        where: {
+          [COLUMNS.COMMON.DANG_HIEN]: true,
+          [COLUMNS.HD_TIEN_DIEN.TU_NGAY]: { [Op.gte]: dateStart },
+          [COLUMNS.HD_TIEN_DIEN.DEN_NGAY]: { [Op.lte]: dateEnd },
+        },
+        include: [
+          {
+            model: Phong,
+            as: "Room",
+            attributes: ["id", "ten_phong"],
+          },
+          {
+            model: DonGiaDien,
+            as: "ElectricityRate",
+            attributes: ["don_gia"],
+          },
+        ],
+        order: [[COLUMNS.HD_TIEN_DIEN.TU_NGAY, "DESC"]],
+      });
+    }
+
+    // Get student bills
+    let studentBills = [];
+    if (includeStudents) {
+      studentBills = await HdTienDienSinhVien.findAll({
+        where: {
+          [COLUMNS.COMMON.DANG_HIEN]: true,
+        },
+        include: [
+          {
+            model: SinhVien,
+            as: "Student",
+            attributes: ["id", "mssv", "ten"],
+          },
+          {
+            model: HdTienDien,
+            as: "ElectricityBill",
+            where: {
+              [COLUMNS.HD_TIEN_DIEN.TU_NGAY]: { [Op.gte]: dateStart },
+              [COLUMNS.HD_TIEN_DIEN.DEN_NGAY]: { [Op.lte]: dateEnd },
+            },
+            include: [
+              {
+                model: Phong,
+                as: "Room",
+                attributes: ["id", "ten_phong"],
+              },
+            ],
+          },
+        ],
+        order: [[{ model: HdTienDien, as: "ElectricityBill" }, COLUMNS.HD_TIEN_DIEN.TU_NGAY, "DESC"]],
+      });
+    }
+
+    // Calculate statistics
+    const totalRoomBills = roomBills.length;
+    const totalStudentBills = studentBills.length;
+    const totalAmount = studentBills.reduce((sum, bill) => sum + parseFloat(bill.so_tien_phai_tra || 0), 0);
+    const paidAmount = studentBills.reduce((sum, bill) => sum + parseFloat(bill.so_tien_da_tra || 0), 0);
+    const unpaidAmount = totalAmount - paidAmount;
+    const paymentRate = totalAmount > 0 ? ((paidAmount / totalAmount) * 100).toFixed(2) : 0;
+
+    return {
+      roomBills,
+      studentBills,
+      statistics: {
+        totalRoomBills,
+        totalStudentBills,
+        totalAmount,
+        paidAmount,
+        unpaidAmount,
+        paymentRate,
+      },
+      dateRange: {
+        from: tuNgay,
+        to: denNgay,
+      },
+    };
+  },
+
+  /**
+   * Lấy chi tiết hóa đơn tiền điện phòng theo ID
+   */
+  getRoomElectricityBillById: async (req, res) => {
+    try {
+      const { id } = req.params;
+      console.log("Getting room bill details for ID:", id);
+
+      // Simplified version first - just get basic bill
+      const bill = await HdTienDien.findByPk(id);
+      console.log("Found bill:", !!bill);
+
+      if (!bill || !bill[COLUMNS.COMMON.DANG_HIEN]) {
+        return errorResponse(res, 404, "Hóa đơn không tồn tại");
+      }
+
+      // Get student bills without complex includes first
+      const studentBillsCount = await HdTienDienSinhVien.count({
+        where: {
+          [COLUMNS.HD_TIEN_DIEN_SINH_VIEN.ID_HD_TIEN_DIEN]: id,
+          [COLUMNS.COMMON.DANG_HIEN]: true,
+        },
+      });
+
+      console.log("Student bills count:", studentBillsCount);
+
+      const result = {
+        id: bill.id,
+        id_phong: bill.id_phong,
+        tu_ngay: bill.tu_ngay,
+        den_ngay: bill.den_ngay,
+        so_dien_cu: bill.so_dien_cu,
+        so_dien_moi: bill.so_dien_moi,
+        trang_thai: bill.trang_thai,
+        summary: {
+          totalStudents: studentBillsCount,
+          totalAmount: 0,
+          paidAmount: 0,
+          unpaidAmount: 0,
+        },
+      };
+
+      return successResponse(res, result);
+    } catch (error) {
+      console.error("getRoomElectricityBillById error:", error);
+      return errorResponse(res, 500, "Không thể lấy chi tiết hóa đơn", error.message);
+    }
+  },
+
+  /**
+   * Bulk finalize hóa đơn (hoàn thiện nhiều hóa đơn cùng lúc)
+   */
+  bulkFinalizeElectricityBills: async (req, res) => {
+    try {
+      const { bill_ids } = req.body;
+
+      if (!Array.isArray(bill_ids) || bill_ids.length === 0) {
+        return errorResponse(res, 400, "Danh sách ID hóa đơn không hợp lệ");
+      }
+
+      const results = [];
+      const errors = [];
+
+      for (const billId of bill_ids) {
+        try {
+          const bill = await HdTienDien.findOne({
+            where: {
+              [COLUMNS.COMMON.ID]: billId,
+              [COLUMNS.COMMON.DANG_HIEN]: true,
+            },
+          });
+
+          if (!bill) {
+            errors.push({ billId, error: "Hóa đơn không tồn tại" });
+            continue;
+          }
+
+          if (bill[COLUMNS.HD_TIEN_DIEN.TRANG_THAI] !== ENUM_HD_TIEN_DIEN_TRANG_THAI.CALCULATED) {
+            errors.push({ billId, error: "Hóa đơn phải được tính toán trước khi hoàn thiện" });
+            continue;
+          }
+
+          await bill.update({
+            [COLUMNS.HD_TIEN_DIEN.TRANG_THAI]: ENUM_HD_TIEN_DIEN_TRANG_THAI.FINALIZED,
+            [COLUMNS.COMMON.NGUOI_CAP_NHAT]: req.user?.id,
+          });
+
+          results.push({ billId, status: "finalized" });
+        } catch (error) {
+          errors.push({ billId, error: error.message });
+        }
+      }
+
       return successResponse(res, {
-        message: "Tính năng export Excel sẽ được triển khai sau",
-        downloadUrl: "/api/electricity/reports/sample.xlsx",
+        finalized: results.length,
+        errors: errors.length,
+        results,
+        errors,
       });
     } catch (error) {
-      return errorResponse(res, 500, "Không thể xuất báo cáo", error.message);
+      return errorResponse(res, 500, "Không thể hoàn thiện hóa đơn hàng loạt", error.message);
+    }
+  },
+
+  /**
+   * Bulk payment cho nhiều sinh viên
+   */
+  bulkPayStudentBills: async (req, res) => {
+    try {
+      const { payments } = req.body;
+
+      if (!Array.isArray(payments) || payments.length === 0) {
+        return errorResponse(res, 400, "Danh sách thanh toán không hợp lệ");
+      }
+
+      const results = [];
+      const errors = [];
+
+      for (const payment of payments) {
+        try {
+          const { bill_id, so_tien_thanh_toan, phuong_thuc_thanh_toan, ma_giao_dich, ghi_chu } = payment;
+
+          const bill = await HdTienDienSinhVien.findOne({
+            where: {
+              [COLUMNS.COMMON.ID]: bill_id,
+              [COLUMNS.COMMON.DANG_HIEN]: true,
+            },
+          });
+
+          if (!bill) {
+            errors.push({ bill_id, error: "Hóa đơn không tồn tại" });
+            continue;
+          }
+
+          const soTienDaTra = parseFloat(bill[COLUMNS.HD_TIEN_DIEN_SINH_VIEN.SO_TIEN_DA_TRA]) || 0;
+          const soTienPhaiTra = parseFloat(bill[COLUMNS.HD_TIEN_DIEN_SINH_VIEN.SO_TIEN_PHAI_TRA]);
+          const soTienThanhToan = parseFloat(so_tien_thanh_toan);
+
+          if (soTienDaTra + soTienThanhToan > soTienPhaiTra) {
+            errors.push({ bill_id, error: "Số tiền thanh toán vượt quá số tiền phải trả" });
+            continue;
+          }
+
+          const soTienMoi = soTienDaTra + soTienThanhToan;
+          let trangThaiMoi = ENUM_HD_TIEN_DIEN_SV_TRANG_THAI.UNPAID;
+
+          if (soTienMoi >= soTienPhaiTra) {
+            trangThaiMoi = ENUM_HD_TIEN_DIEN_SV_TRANG_THAI.PAID;
+          } else if (soTienMoi > 0) {
+            trangThaiMoi = ENUM_HD_TIEN_DIEN_SV_TRANG_THAI.PARTIAL_PAID;
+          }
+
+          await bill.update({
+            [COLUMNS.HD_TIEN_DIEN_SINH_VIEN.SO_TIEN_DA_TRA]: soTienMoi,
+            [COLUMNS.HD_TIEN_DIEN_SINH_VIEN.TRANG_THAI_THANH_TOAN]: trangThaiMoi,
+            [COLUMNS.HD_TIEN_DIEN_SINH_VIEN.PHUONG_THUC_THANH_TOAN]: phuong_thuc_thanh_toan,
+            [COLUMNS.HD_TIEN_DIEN_SINH_VIEN.MA_GIAO_DICH]: ma_giao_dich,
+            [COLUMNS.HD_TIEN_DIEN_SINH_VIEN.NGAY_THANH_TOAN]:
+              trangThaiMoi === ENUM_HD_TIEN_DIEN_SV_TRANG_THAI.PAID
+                ? new Date()
+                : bill[COLUMNS.HD_TIEN_DIEN_SINH_VIEN.NGAY_THANH_TOAN],
+            [COLUMNS.HD_TIEN_DIEN_SINH_VIEN.GHI_CHU]: ghi_chu,
+            [COLUMNS.COMMON.NGUOI_CAP_NHAT]: req.user?.id,
+          });
+
+          results.push({ bill_id, status: trangThaiMoi, amount_paid: soTienThanhToan });
+        } catch (error) {
+          errors.push({ bill_id, error: error.message });
+        }
+      }
+
+      return successResponse(res, {
+        processed: results.length,
+        errors: errors.length,
+        results,
+        errors,
+      });
+    } catch (error) {
+      return errorResponse(res, 500, "Không thể thanh toán hàng loạt", error.message);
+    }
+  },
+
+  /**
+   * Advanced statistics với filter chi tiết
+   */
+  getAdvancedStatistics: async (req, res) => {
+    try {
+      const { year, month } = req.query;
+      const currentYear = year ? parseInt(year) : new Date().getFullYear();
+
+      // Basic stats
+      const totalRoomBills = await HdTienDien.count({
+        where: {
+          [COLUMNS.COMMON.DANG_HIEN]: true,
+          [Op.and]: [literal(`EXTRACT(YEAR FROM tu_ngay) = ${currentYear}`)],
+        },
+      });
+
+      const totalStudentBills = await HdTienDienSinhVien.count({
+        where: { [COLUMNS.COMMON.DANG_HIEN]: true },
+      });
+
+      // Top consuming rooms (simplified)
+      const topConsumingRooms = await HdTienDien.findAll({
+        attributes: [
+          "id_phong",
+          [fn("SUM", col("so_dien_tieu_thu")), "total_consumption"],
+          [fn("COUNT", col("id")), "bill_count"],
+        ],
+        where: {
+          [COLUMNS.COMMON.DANG_HIEN]: true,
+          [Op.and]: [literal(`EXTRACT(YEAR FROM tu_ngay) = ${currentYear}`)],
+        },
+        group: ["id_phong"],
+        order: [[fn("SUM", col("so_dien_tieu_thu")), "DESC"]],
+        limit: 5,
+        raw: true,
+      });
+
+      const result = {
+        period: month ? `${month}/${currentYear}` : currentYear.toString(),
+        overview: {
+          totalRoomBills,
+          totalStudentBills,
+          year: currentYear,
+        },
+        topConsumingRooms: topConsumingRooms.map((room) => ({
+          roomId: room.id_phong,
+          totalConsumption: parseFloat(room.total_consumption || 0),
+          billCount: parseInt(room.bill_count),
+        })),
+      };
+
+      return successResponse(res, result);
+    } catch (error) {
+      console.error("Advanced statistics error:", error);
+      return errorResponse(res, 500, "Không thể lấy thống kê chi tiết", error.message);
     }
   },
 };

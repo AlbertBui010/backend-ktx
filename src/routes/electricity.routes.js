@@ -232,6 +232,19 @@ router.get(
 );
 
 /**
+ * @route   GET /api/electricity/room-bills/:id
+ * @desc    Lấy chi tiết hóa đơn tiền điện cho phòng theo ID
+ * @access  Private
+ */
+router.get(
+  "/room-bills/:id",
+  authenticateToken,
+  [param("id").isInt({ min: 1 }).withMessage("ID hóa đơn phải là số nguyên dương")],
+  validationMiddleware,
+  electricityController.getRoomElectricityBillById,
+);
+
+/**
  * @route   POST /api/electricity/room-bills/:id/calculate
  * @desc    Tính tiền điện cho sinh viên trong phòng
  * @access  Private (Admin only)
@@ -242,6 +255,35 @@ router.post(
   idValidation,
   validationMiddleware,
   electricityController.calculateStudentBills,
+);
+
+/**
+ * @route   PUT /api/electricity/room-bills/:id
+ * @desc    Cập nhật hóa đơn tiền điện phòng (chỉ khi draft)
+ * @access  Private (Admin only)
+ */
+router.put(
+  "/room-bills/:id",
+  authenticateToken,
+  requireAdmin,
+  preventFinalizedEditValidation,
+  createRoomElectricityBillValidation,
+  validationMiddleware,
+  electricityController.updateRoomElectricityBill,
+);
+
+/**
+ * @route   DELETE /api/electricity/room-bills/:id
+ * @desc    Xóa hóa đơn tiền điện phòng (chỉ khi draft)
+ * @access  Private (Admin only)
+ */
+router.delete(
+  "/room-bills/:id",
+  authenticateToken,
+  requireAdmin,
+  idValidation,
+  validationMiddleware,
+  electricityController.deleteRoomElectricityBill,
 );
 
 /**
@@ -303,6 +345,25 @@ router.put(
  */
 router.get("/statistics", authenticateToken, requireAdmin, electricityController.getElectricityStatistics);
 
+/**
+ * @route   GET /api/electricity/advanced-statistics
+ * @desc    Thống kê nâng cao tiền điện
+ * @access  Private (Admin only)
+ */
+router.get(
+  "/advanced-statistics",
+  authenticateToken,
+  requireAdmin,
+  [
+    query("year").optional().isInt({ min: 2020, max: 2050 }).withMessage("Năm phải là số nguyên từ 2020 đến 2050"),
+    query("month").optional().isInt({ min: 1, max: 12 }).withMessage("Tháng phải là số nguyên từ 1 đến 12"),
+    query("phong_id").optional().isInt({ min: 1 }).withMessage("ID phòng phải là số nguyên dương"),
+    query("khu_id").optional().isInt({ min: 1 }).withMessage("ID khu phải là số nguyên dương"),
+  ],
+  validationMiddleware,
+  electricityController.getAdvancedStatistics,
+);
+
 // ===== CÁC ROUTE BỔ SUNG CẦN THIẾT =====
 
 /**
@@ -357,36 +418,75 @@ router.post(
 );
 
 /**
- * @route   GET /api/electricity/room-bills/:id/preview
- * @desc    Preview tính toán tiền điện sinh viên (không lưu vào DB)
- * @access  Private (Admin only)
- */
-router.get(
-  "/room-bills/:id/preview",
-  authenticateToken,
-  requireAdmin,
-  idValidation,
-  validationMiddleware,
-  electricityController.previewStudentCalculation,
-);
-
-/**
- * @route   PUT /api/electricity/student-bills/:id/cancel
- * @desc    Hủy hóa đơn sinh viên
+ * @route   PUT /api/electricity/bulk/finalize
+ * @desc    Hoàn thiện hóa đơn tiền điện hàng loạt
  * @access  Private (Admin only)
  */
 router.put(
-  "/student-bills/:id/cancel",
+  "/bulk/finalize",
   authenticateToken,
   requireAdmin,
-  idValidation,
+  [
+    body("bill_ids")
+      .isArray({ min: 1 })
+      .withMessage("Danh sách ID hóa đơn phải là mảng và không rỗng")
+      .custom((value) => {
+        if (!value.every((id) => Number.isInteger(id) && id > 0)) {
+          throw new Error("Tất cả ID hóa đơn phải là số nguyên dương");
+        }
+        return true;
+      }),
+  ],
   validationMiddleware,
-  electricityController.cancelStudentBill,
+  electricityController.bulkFinalizeElectricityBills,
 );
 
 /**
+ * @route   POST /api/electricity/bulk/payments
+ * @desc    Thanh toán tiền điện hàng loạt
+ * @access  Private (Admin only)
+ */
+router.post(
+  "/bulk/payments",
+  authenticateToken,
+  requireAdmin,
+  [
+    body("payments").isArray({ min: 1 }).withMessage("Danh sách thanh toán phải là mảng và không rỗng"),
+    body("payments.*.bill_id").isInt({ min: 1 }).withMessage("ID hóa đơn phải là số nguyên dương"),
+    body("payments.*.so_tien_thanh_toan")
+      .isNumeric()
+      .withMessage("Số tiền thanh toán phải là số")
+      .custom((value) => {
+        if (parseFloat(value) <= 0) {
+          throw new Error("Số tiền thanh toán phải lớn hơn 0");
+        }
+        return true;
+      }),
+    body("payments.*.phuong_thuc_thanh_toan")
+      .notEmpty()
+      .withMessage("Phương thức thanh toán là bắt buộc")
+      .isIn(["cash", "bank_transfer", "online"])
+      .withMessage("Phương thức thanh toán không hợp lệ"),
+    body("payments.*.ma_giao_dich")
+      .optional()
+      .trim()
+      .isLength({ max: 100 })
+      .withMessage("Mã giao dịch không được vượt quá 100 ký tự"),
+    body("payments.*.ghi_chu")
+      .optional()
+      .trim()
+      .isLength({ max: 500 })
+      .withMessage("Ghi chú không được vượt quá 500 ký tự"),
+  ],
+  validationMiddleware,
+  electricityController.bulkPayStudentBills,
+);
+
+// ===== EXPORT ROUTES =====
+
+/**
  * @route   GET /api/electricity/export/excel
- * @desc    Xuất báo cáo Excel
+ * @desc    Xuất báo cáo tiền điện ra Excel
  * @access  Private (Admin only)
  */
 router.get(
@@ -394,12 +494,48 @@ router.get(
   authenticateToken,
   requireAdmin,
   [
-    query("month").optional().isInt({ min: 1, max: 12 }).withMessage("Tháng phải là số từ 1-12"),
-    query("year").optional().isInt({ min: 2020, max: 2100 }).withMessage("Năm phải trong khoảng 2020-2100"),
-    query("id_phong").optional().isInt({ min: 1 }).withMessage("ID phòng phải là số nguyên dương"),
+    query("tu_ngay")
+      .notEmpty()
+      .withMessage("Ngày bắt đầu là bắt buộc")
+      .isISO8601()
+      .withMessage("Ngày bắt đầu không hợp lệ"),
+    query("den_ngay")
+      .notEmpty()
+      .withMessage("Ngày kết thúc là bắt buộc")
+      .isISO8601()
+      .withMessage("Ngày kết thúc không hợp lệ"),
+    query("include_students").optional().isBoolean().withMessage("include_students phải là boolean"),
+    query("include_rooms").optional().isBoolean().withMessage("include_rooms phải là boolean"),
   ],
   validationMiddleware,
   electricityController.exportExcel,
+);
+
+/**
+ * @route   GET /api/electricity/export/pdf
+ * @desc    Xuất báo cáo tiền điện ra PDF
+ * @access  Private (Admin only)
+ */
+router.get(
+  "/export/pdf",
+  authenticateToken,
+  requireAdmin,
+  [
+    query("tu_ngay")
+      .notEmpty()
+      .withMessage("Ngày bắt đầu là bắt buộc")
+      .isISO8601()
+      .withMessage("Ngày bắt đầu không hợp lệ"),
+    query("den_ngay")
+      .notEmpty()
+      .withMessage("Ngày kết thúc là bắt buộc")
+      .isISO8601()
+      .withMessage("Ngày kết thúc không hợp lệ"),
+    query("include_students").optional().isBoolean().withMessage("include_students phải là boolean"),
+    query("include_rooms").optional().isBoolean().withMessage("include_rooms phải là boolean"),
+  ],
+  validationMiddleware,
+  electricityController.exportPDF,
 );
 
 export default router;
