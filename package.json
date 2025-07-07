@@ -30,6 +30,7 @@
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
     "seed:admin": "node src/scripts/create-admin.js",
+    "seed:data": "node src/scripts/seed-data.js",
     "setup-electricity": "node src/scripts/setup-electricity.js",
     "test": "NODE_ENV=test mocha src/tests/**/*.test.js --timeout 10000 --recursive",
     "test:electricity": "NODE_ENV=test mocha src/tests/electricity.test.js --timeout 10000",
