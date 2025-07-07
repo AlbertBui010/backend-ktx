@@ -214,6 +214,10 @@ export const COLUMNS = {
   HD_PHAN_BO_PHONG: {
     ID_PHAN_BO_PHONG: "id_phan_bo_phong",
     SO_TIEN_THANH_TOAN: "so_tien_thanh_toan",
+    ORDER_CODE: "order_code", // Mã đơn hàng
+    ORDER_CREATED_AT: "order_created_at", // Thời gian tạo đơn hàng 
+    PAID_AT: "paid_at", // Thời gian thanh toán
+    STATUS: "status", // Trạng thái thanh toán
   },
   HD_TIEN_DIEN: {
     ID_PHONG: "id_phong",
