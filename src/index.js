@@ -11,6 +11,7 @@ import registrationRoutes from "./routes/registration.routes.js";
 import nhanVienRoutes from "./routes/nhanVien.routes.js";
 import phanBoPhongRoutes from "./routes/phanBoPhong.routes.js";
 import PaymentRoutes from "./routes/invoices.routes.js";
+import electricityRoutes from "./routes/electricity.routes.js";
 import webhookRoutes from "./routes/webhook.routes.js";
 import { connectDatabase } from "./config/database.config.js";
 import { connectRedis } from "./config/redis.config.js";
@@ -37,16 +38,16 @@ const initializeConnections = async () => {
   }
 };
 
-// Middleware
-app.use(
-  cors({
-    origin: process.env.FRONTEND_URL || "*",
-    credentials: true,
-  }),
-);
+/* --- 1. CORS, morgan, … --- */
+app.use(cors({ origin: process.env.FRONTEND_URL || "*", credentials: true }));
+app.use(morgan("dev"));
+
+/* --- 2. Webhook RAW phải đặt TRƯỚC express.json() --- */
+app.use("/api/webhook", webhookRoutes);
+
+/* --- 3. Các middleware parse JSON sau đó --- */
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
-app.use(morgan("dev"));
 
 // Routes
 app.use("/api", healthRoutes);
@@ -57,9 +58,10 @@ app.use("/api/registrations", registrationRoutes);
 app.use("/api/topics", topicRoutes);
 app.use("/api/staff", nhanVienRoutes);
 app.use("/api/room-allocations", phanBoPhongRoutes);
-app.use("/api/webhook", webhookRoutes);
 app.use(express.json());
 app.use("/api/invoices", PaymentRoutes);
+app.use("/api/electricity", electricityRoutes);
+
 
 
 
