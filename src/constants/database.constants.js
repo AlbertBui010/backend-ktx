@@ -150,6 +150,27 @@ export const ENUM_SINH_VIEN_TRANG_THAI = {
   INACTIVE: "inactive", // Không hoạt động
 };
 
+/**
+ * @enum {string} ENUM_HD_TIEN_DIEN_TRANG_THAI - Trạng thái hóa đơn tiền điện phòng
+ */
+export const ENUM_HD_TIEN_DIEN_TRANG_THAI = {
+  DRAFT: "draft", // Bản nháp - vừa tạo, chưa tính toán
+  CALCULATED: "calculated", // Đã tính toán tiền cho sinh viên
+  FINALIZED: "finalized", // Đã hoàn thiện, không thể chỉnh sửa
+  CANCELLED: "cancelled", // Đã hủy
+};
+
+/**
+ * @enum {string} ENUM_HD_TIEN_DIEN_SV_TRANG_THAI - Trạng thái thanh toán tiền điện sinh viên
+ */
+export const ENUM_HD_TIEN_DIEN_SV_TRANG_THAI = {
+  UNPAID: "unpaid", // Chưa thanh toán
+  PAID: "paid", // Đã thanh toán đủ
+  PARTIAL_PAID: "partial_paid", // Thanh toán một phần
+  OVERDUE: "overdue", // Quá hạn thanh toán
+  CANCELLED: "cancelled", // Đã hủy
+};
+
 // --- Date Formats ---
 // Ví dụ: Các năm học (nếu có định dạng chuẩn)
 export const ENUM_NAM_HOC_FORMAT = {
@@ -165,6 +186,7 @@ export const TABLES = {
   GIUONG: "giuong",
   HD_PHAN_BO_PHONG: "hd_phan_bo_phong",
   HD_TIEN_DIEN: "hd_tien_dien",
+  HD_TIEN_DIEN_SINH_VIEN: "hd_tien_dien_sinh_vien",
   LOAI_PHONG: "loai_phong",
   NHAN_VIEN: "nhan_vien",
   NOI_QUY: "noi_quy",
@@ -201,8 +223,10 @@ export const COLUMNS = {
     MO_TA: "mo_ta",
   },
   DON_GIA_DIEN: {
-    MO_TA: "mo_ta",
-    DON_GIA_DIEN: "don_gia_dien",
+    DON_GIA: "don_gia",
+    TU_NGAY: "tu_ngay",
+    DEN_NGAY: "den_ngay",
+    GHI_CHU: "ghi_chu",
   },
   GIUONG: {
     TEN_GIUONG: "ten_giuong",
@@ -214,6 +238,10 @@ export const COLUMNS = {
   HD_PHAN_BO_PHONG: {
     ID_PHAN_BO_PHONG: "id_phan_bo_phong",
     SO_TIEN_THANH_TOAN: "so_tien_thanh_toan",
+    ORDER_CODE: "order_code", // Mã đơn hàng
+    ORDER_CREATED_AT: "order_created_at", // Thời gian tạo đơn hàng 
+    PAID_AT: "paid_at", // Thời gian thanh toán
+    STATUS: "status", // Trạng thái thanh toán
   },
   HD_TIEN_DIEN: {
     ID_PHONG: "id_phong",
@@ -222,8 +250,24 @@ export const COLUMNS = {
     SO_DIEN_CU: "so_dien_cu",
     SO_DIEN_MOI: "so_dien_moi",
     ID_DON_GIA_DIEN: "id_don_gia_dien",
-    TRANG_THAI: "trang_thai",
+    SO_DIEN_TIEU_THU: "so_dien_tieu_thu",
     THANH_TIEN: "thanh_tien",
+    TRANG_THAI: "trang_thai",
+    GHI_CHU: "ghi_chu",
+  },
+  HD_TIEN_DIEN_SINH_VIEN: {
+    ID_HD_TIEN_DIEN: "id_hd_tien_dien",
+    ID_SINH_VIEN: "id_sinh_vien",
+    ID_PHAN_BO_PHONG: "id_phan_bo_phong",
+    SO_NGAY_O: "so_ngay_o",
+    TY_LE_CHIA: "ty_le_chia",
+    SO_TIEN_PHAI_TRA: "so_tien_phai_tra",
+    TRANG_THAI_THANH_TOAN: "trang_thai_thanh_toan",
+    NGAY_THANH_TOAN: "ngay_thanh_toan",
+    SO_TIEN_DA_TRA: "so_tien_da_tra",
+    PHUONG_THUC_THANH_TOAN: "phuong_thuc_thanh_toan",
+    MA_GIAO_DICH: "ma_giao_dich",
+    GHI_CHU: "ghi_chu",
   },
   LOAI_PHONG: {
     TEN_LOAI: "ten_loai",
@@ -261,7 +305,7 @@ export const COLUMNS = {
     NGAY_KET_THUC: "ngay_ket_thuc",
     TRANG_THAI: "trang_thai",
     LY_DO_KET_THUC: "ly_do_ket_thuc",
-    TRANG_THAI_THANH_TOAN: "trang_thai_thanh_toan", 
+    TRANG_THAI_THANH_TOAN: "trang_thai_thanh_toan",
   },
   PHIEU_DANG_KY_KTX: {
     ID_SINH_VIEN: "id_sinh_vien",

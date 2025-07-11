@@ -35,13 +35,7 @@ const idValidation = [param("id").isInt({ min: 1 }).withMessage("Valid registrat
 // Registration routes
 
 // Public/Student routes (Students can create their own registrations)
-router.post(
-  "/",
-  //   authenticateToken,
-  createRegistrationValidation,
-  validationMiddleware,
-  registrationController.createRegistration,
-);
+router.post("/", createRegistrationValidation, validationMiddleware, registrationController.createRegistration);
 
 // Student can view their own registrations
 router.get("/my-registrations", authenticateToken, registrationController.getMyRegistrations);
