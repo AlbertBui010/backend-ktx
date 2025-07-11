@@ -49,6 +49,27 @@ const HoaDonPhanBoPhong = sequelize.define(
       type: DataTypes.INTEGER,
       allowNull: true,
     },
+    [COLUMNS.HD_PHAN_BO_PHONG.ORDER_CODE]: {
+      type: DataTypes.BIGINT,
+      allowNull: true,
+      unique: true,
+    },
+
+    [COLUMNS.HD_PHAN_BO_PHONG.ORDER_CREATED_AT]: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+
+    [COLUMNS.HD_PHAN_BO_PHONG.PAID_AT]: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+
+    [COLUMNS.HD_PHAN_BO_PHONG.STATUS]: {
+      type: DataTypes.ENUM("pending", "paid", "overdue"),
+      allowNull: false,
+      defaultValue: "pending",
+    },
   },
   {
     tableName: TABLES.HD_PHAN_BO_PHONG,

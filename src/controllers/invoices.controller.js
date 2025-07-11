@@ -1,4 +1,5 @@
-import 'dotenv/config';
+// invoices.controller.js
+import "dotenv/config";
 import {
   HoaDonPhanBoPhong,
   PhanBoPhong,
@@ -10,10 +11,11 @@ import {
 import sequelize from "../config/database.config.js";
 import payos from "../utils/payos.util.js";
 import { COLUMNS } from "../constants/database.constants.js";
-import qrcode from 'qrcode'; // Import thư viện qrcode cho Node.js
+import qrcode from "qrcode";
+import crypto from "crypto";
 
 /* -------------------------------------------------------------------------- */
-/* Helper: Lấy HĐ + Allocation kèm Room info & kiểm quyền                    */
+/* Helper: lấy invoice + bed/room + kiểm quyền                               */
 /* -------------------------------------------------------------------------- */
 const getInvoiceWithAllocation = async (allocationId, user = null) => {
   const invoice = await HoaDonPhanBoPhong.findOne({
@@ -52,20 +54,55 @@ const getInvoiceWithAllocation = async (allocationId, user = null) => {
   ) {
     throw new Error("Bạn không có quyền truy cập hóa đơn này");
   }
-
   return invoice;
 };
 
 /* -------------------------------------------------------------------------- */
-/* CONTROLLER                                                                */
+/* Helper: build & verify PayOS signature                                     */
+/* -------------------------------------------------------------------------- */
+const checksumKey = process.env.PAYOS_CHECKSUM_KEY;
+
+/** Sort object keys, stringify arrays → "k1=v1&k2=v2…"  */
+const buildSignaturePayload = (obj) => {
+  return Object.keys(obj)
+    .sort()
+    .map((k) => {
+      let v = obj[k];
+      if (v === null || v === undefined) v = "";
+      if (Array.isArray(v))
+        v = JSON.stringify(
+          v.map((el) => {
+            const orderedEl = {};
+            Object.keys(el)
+              .sort()
+              .forEach((key) => (orderedEl[key] = el[key]));
+            return orderedEl;
+          })
+        );
+      return `${k}=${v}`;
+    })
+    .join("&");
+};
+
+const isValidSignature = (data, signature) => {
+  if (!checksumKey) throw new Error("PAYOS_CHECKSUM_KEY chưa khai báo");
+  const raw = buildSignaturePayload(data);
+  const expected = crypto
+    .createHmac("sha256", checksumKey)
+    .update(raw)
+    .digest("hex");
+  return expected === signature;
+};
+
+/* -------------------------------------------------------------------------- */
+/* CONTROLLER                                                                 */
 /* -------------------------------------------------------------------------- */
 export const invoiceController = {
-  // Nhân viên: lấy tất cả hóa đơn
+  /* -------------------- 1. Nhân viên: tất cả hóa đơn --------------------- */
   async getAll(req, res) {
     try {
       const { page = 1, limit = 20, status } = req.query;
       const offset = (page - 1) * limit;
-
       const where = { [COLUMNS.COMMON.DANG_HIEN]: true };
       if (status) where.status = status;
 
@@ -81,12 +118,7 @@ export const invoiceController = {
               {
                 model: Giuong,
                 as: "Bed",
-                include: [
-                  {
-                    model: Phong,
-                    as: "Room",
-                  },
-                ],
+                include: [{ model: Phong, as: "Room" }],
               },
               { model: SinhVien, as: "Student" },
             ],
@@ -108,11 +140,10 @@ export const invoiceController = {
     }
   },
 
-  // Sinh viên: lấy hóa đơn của mình
+  /* ------------------- 2. Sinh viên: hóa đơn của mình -------------------- */
   async getMyInvoices(req, res) {
     try {
       const studentId = req.user.id;
-
       const invoices = await HoaDonPhanBoPhong.findAll({
         include: [
           {
@@ -120,10 +151,7 @@ export const invoiceController = {
             as: "Allocation",
             where: { [COLUMNS.PHAN_BO_PHONG.ID_SV]: studentId },
             include: [
-              {
-                model: SinhVien, // ← BỔ SUNG DÒNG NÀY
-                as: "Student",
-              },
+              { model: SinhVien, as: "Student" },
               {
                 model: Giuong,
                 as: "Bed",
@@ -132,64 +160,46 @@ export const invoiceController = {
             ],
           },
         ],
-        // order: [['ngay_tao', "DESC"]],
+        order: [[COLUMNS.COMMON.NGAY_TAO, "DESC"]],
       });
-      console.log("Invoices trả về:", JSON.stringify(invoices, null, 2));
-
       res.status(200).json(invoices);
     } catch (err) {
-      console.error("getMyInvoices error:", err);
-      return res.status(500).json({ message: err.message });
+      console.error("getMyInvoices:", err);
+      res.status(500).json({ message: err.message });
     }
   },
 
-  //lay 1 hóa đơn theo allocationId
+  /* ------------------ 3. Lấy một hóa đơn theo allocation ----------------- */
   async getOne(req, res) {
     try {
       const invoice = await getInvoiceWithAllocation(
         req.params.allocationId,
-        req.user
+        req.user,
       );
-      return res.status(200).json({
-        data: { invoice },
-        message: "Lấy hóa đơn thành công",
-      });
+      res.status(200).json({ data: { invoice }, message: "Lấy hóa đơn thành công" });
     } catch (err) {
-      return res.status(400).json({ message: err.message });
+      res.status(400).json({ message: err.message });
     }
   },
 
-// Sinh viên: tạo checkout link
+  /* ------------------- 4. Sinh viên: tạo checkout PayOS ------------------ */
   async createCheckout(req, res) {
     const t = await sequelize.transaction();
-
     try {
       const { allocationId } = req.params;
-      console.log("1. Starting checkout for allocationId:", allocationId);
-
       const invoice = await getInvoiceWithAllocation(allocationId, req.user);
-      console.log("2. Invoice fetched:", invoice?.id);
 
-      if (invoice.status === "paid") {
+      if (invoice.status === "paid")
         return res.status(409).json({ message: "Hóa đơn đã thanh toán" });
-      }
 
-      const totalAmount = parseInt(
-        invoice[COLUMNS.HD_PHAN_BO_PHONG.SO_TIEN_THANH_TOAN] ?? 0,
-        10
-      );
-      console.log("3. Total Amount (parsed to int):", totalAmount);
+      /* orderCode = {id}{6 số millis cuối} */
+      const total = Number(invoice.so_tien_thanh_toan || 0);
+      const orderCode = Number(`${invoice.id}${Date.now() % 1e6}`);
 
-      const shortTimestamp = Date.now() % 1e6;
-      const orderCode = Number(`${invoice.id}${shortTimestamp}`);
-      console.log("4. Order Code:", orderCode);
-
-      console.log("DEBUG: PAYOS_RETURN_URL:", process.env.PAYOS_RETURN_URL);
-      console.log("DEBUG: PAYOS_CANCEL_URL:", process.env.PAYOS_CANCEL_URL);
-
+      /* student / room info */
       const {
         Allocation: {
-          Student: { ten: studentName = "", email: studentEmail = "", sdt: studentPhone = "" } = {},
+          Student: { ten = "", email = "", sdt: phone = "" } = {},
           Bed: {
             Room: { ten_phong: roomName = "Phòng KTX" } = {},
             ten_giuong: bedName = "Giường",
@@ -197,120 +207,124 @@ export const invoiceController = {
         } = {},
       } = invoice;
 
-      const description = "Thanh toán KTX";
-
-      const paymentData = {
+      const payosResult = await payos.createPaymentLink({
         orderCode,
-        amount: totalAmount,
-        description,
+        amount: total,
+        description: "Thanh toán KTX",
         returnUrl: process.env.PAYOS_RETURN_URL,
         cancelUrl: process.env.PAYOS_CANCEL_URL,
-        items: [
-          {
-            name: `Phí thuê phòng ${roomName} - Giường ${bedName}`,
-            quantity: 1,
-            price: totalAmount,
-          },
-        ],
-        buyer: {
-          fullName: studentName,
-          email: studentEmail,
-          phone: studentPhone,
-        },
-      };
+        items: [{ name: `Phí ${roomName} – ${bedName}`, quantity: 1, price: total }],
+        buyer: { fullName: ten, email, phone },
+      });
 
-      console.log("DEBUG: Sending to PayOS:", JSON.stringify(paymentData, null, 2));
+      if (!payosResult?.qrCode || !payosResult?.checkoutUrl)
+        throw new Error("PayOS không trả đủ dữ liệu");
 
-      const payosResult = await payos.createPaymentLink(paymentData); // Đổi tên biến để tránh trùng lặp
-
-      let qrCodeBase64 = null;
-      if (payosResult.qrCode) { // payosResult.qrCode là chuỗi QR thô từ PayOS
-        try {
-          // Chuyển đổi chuỗi QR thô thành hình ảnh Base64
-          // toDataURL trả về định dạng "data:image/png;base64,..."
-          const fullQrCodeDataUrl = await qrcode.toDataURL(payosResult.qrCode, { type: 'image/png' });
-          // Lấy phần Base64 sau dấu phẩy
-          qrCodeBase64 = fullQrCodeDataUrl.split(',')[1];
-          console.log("DEBUG: QR Code Base64 generated successfully.");
-        } catch (qrErr) {
-          console.error("Error generating QR code Base64:", qrErr);
-          // NÉM LỖI RA ĐÂY ĐỂ NGĂN CHẶN LỖI THẦM LẶNG
-          throw new Error("Không thể tạo mã QR thanh toán từ PayOS: " + qrErr.message);
-        }
-      } else {
-        // Nếu payosResult.qrCode không tồn tại, cũng ném lỗi
-        throw new Error("PayOS không trả về chuỗi QR code.");
-      }
-
-      console.log("5. PayOS createPaymentLink result:", payosResult);
-      console.log("DEBUG: qrCodeBase64 sent to frontend:", qrCodeBase64 ? "Generated" : "Null/Undefined"); // Thêm log này
+      const qrBase64 = (await qrcode.toDataURL(payosResult.qrCode)).split(",")[1];
 
       await invoice.update(
-        {
-          order_code: orderCode,
-          order_created_at: new Date(), // Lưu timestamp tạo order
-        },
-        { transaction: t }
+        { order_code: orderCode, order_created_at: new Date(), status: "pending" },
+        { transaction: t },
       );
-      console.log("6. Invoice updated with order_code and order_created_at.");
+      await t.commit();
 
-      // Lập lịch để hủy bỏ orderCode sau 5 phút (300,000 ms) nếu chưa thanh toán
+      /* Auto‑expire sau 5′ nếu chưa thanh toán */
       setTimeout(async () => {
         try {
-          const updatedInvoice = await HoaDonPhanBoPhong.findByPk(invoice.id);
-          if (updatedInvoice && updatedInvoice.status !== "paid") {
-            await updatedInvoice.update({ order_code: null });
-            console.log(`Order ${orderCode} invalidated for invoice ${invoice.id}`);
+          const again = await HoaDonPhanBoPhong.findByPk(invoice.id);
+          if (again?.status === "pending") {
+            await again.update({ order_code: null, status: "overdue" });
+            console.log(`⏰ Order ${orderCode} – hết hạn sau 5′`);
           }
         } catch (err) {
-          console.error(`Failed to invalidate order ${orderCode}:`, err);
+          console.error("Auto‑expire error:", err);
         }
-      }, 300000);
-
-      await t.commit();
-      console.log("7. Transaction committed.");
+      }, 5 * 60 * 1000);
 
       return res.status(201).json({
         checkoutUrl: payosResult.checkoutUrl,
-        qrCode: qrCodeBase64, // Gửi chuỗi Base64 của hình ảnh QR về frontend
-        orderCode, // Trả về orderCode cho frontend
+        qrCode: qrBase64,
+        orderCode,
         expireIn: 300,
       });
     } catch (err) {
-      console.error("Error in createCheckout:", err);
       await t.rollback();
-      return res.status(500).json({
-        message: "Không tạo được phiên thanh toán",
-        detail: err.message,
-      });
+      console.error("createCheckout:", err);
+      res
+        .status(500)
+        .json({ message: "Không tạo được phiên thanh toán", detail: err.message });
     }
   },
 
-  // Webhook từ PayOS (không cần auth)
+  /* --------------------------- 5. PayOS Webhook -------------------------- */
   async handlePayOSWebhook(req, res) {
-    try {
-      const data = payos.verifyPaymentWebhook(req.body);
-      const { orderCode, status } = data;
+  const t = await sequelize.transaction();
+  try {
+    /* 1. Lấy raw body */
+    const rawBody = req.body.toString("utf8");
+    const payload = JSON.parse(rawBody);
 
-      // orderCode: INV-<invoiceId>-timestamp
-      const invoiceId = orderCode?.toString().slice(0, -6); // Trích xuất invoiceId từ orderCode
-      if (status === "PAID" && invoiceId) {
-        await HoaDonPhanBoPhong.update(
-          { status: "paid" },
-          { where: { id: invoiceId } }
-        );
-        const invoice = await HoaDonPhanBoPhong.findByPk(invoiceId);
-        await PhanBoPhong.update(
-          { trang_thai_thanh_toan: true },
-          { where: { id: invoice?.[COLUMNS.HD_PHAN_BO_PHONG.ID_PHAN_BO_PHONG] } }
-        );
-      }
+    /** -------------------------------------------------
+     *  PayOS trả về:
+     *  { code: "00", desc: "...", data: {...}, signature: "..." }
+     *  => success = true <=> (success === true) || (code === "00")
+     * ------------------------------------------------- */
+    const { data, signature, success, code } = payload || {};
+    const isSuccess = success !== undefined ? success : code === "00";
 
-      return res.status(200).json({ received: true });
-    } catch (err) {
-      console.error("Webhook error:", err);
-      return res.status(400).json({ error: "Invalid signature" });
+    if (!isSuccess || !data)
+      return res.status(400).json({ message: "Thiếu dữ liệu webhook" });
+
+    /* 2. Xác thực chữ ký – bỏ qua khi PayOS trả về SIMULATED_SIGNATURE (sandbox) */
+    const isSimulated = signature === "SIMULATED_SIGNATURE";
+    if (!isSimulated && !isValidSignature(data, signature))
+      return res.status(400).json({ message: "Chữ ký không hợp lệ" });
+
+    /* 3. Xử lý nghiệp vụ (giữ nguyên khối cũ) */
+    const {
+      orderCode,
+      amount,
+      reference,
+      transactionDateTime,
+      paymentLinkId,
+    } = data;
+
+    const invoice = await HoaDonPhanBoPhong.findOne(
+      { where: { order_code: orderCode } },
+      { transaction: t }
+    );
+
+    if (!invoice) {
+      console.warn("⛔️ Không tìm thấy invoice:", orderCode);
+      await t.commit();
+      return res.status(200).json({ success: true });
     }
-  },
+
+    if (Number(invoice.so_tien_thanh_toan || 0) !== Number(amount))
+      console.warn(
+        `⚠️ Số tiền không khớp (local ${invoice.so_tien_thanh_toan} ≠ webhook ${amount})`
+      );
+
+    if (invoice.status !== "paid") {
+      await invoice.update(
+        {
+          status: "paid",
+          reference,
+          payment_link_id: paymentLinkId,
+          paid_at: new Date(transactionDateTime || Date.now()),
+        },
+        { transaction: t }
+      );
+    }
+
+    await t.commit();
+    return res.status(200).json({ success: true });
+  } catch (err) {
+    await t.rollback();
+    console.error("PayOS Webhook error:", err);
+    res.status(500).json({ message: "Xử lý webhook thất bại" });
+  }
+},
 };
+
 export default invoiceController;

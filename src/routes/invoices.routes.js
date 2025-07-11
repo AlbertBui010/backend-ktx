@@ -1,6 +1,7 @@
 // src/routes/invoices.routes.js
 import express from "express";
 import { invoiceController } from "../controllers/invoices.controller.js";
+import bodyParser from "body-parser"; // 👈 import thêm dòng này
 import { authenticateToken, requireStaff } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
@@ -17,7 +18,5 @@ router.get("/:allocationId", authenticateToken, invoiceController.getOne);
 // Sinh viên: tạo checkout link
 router.post("/:allocationId/checkout", authenticateToken, invoiceController.createCheckout);
 
-// Webhook từ PayOS (không cần auth)
-router.post("/payos-webhook", invoiceController.handlePayOSWebhook);
 
 export default router;

@@ -8,9 +8,9 @@ dotenv.config();
 const uniqueId = Math.random().toString(36).substring(2, 8);
 console.log("Unique ID for admin user:", uniqueId);
 const ADMIN_DATA = {
-  username: "ADMIN" + uniqueId,
-  password: "ADMIN" + uniqueId + "123",
-  email: "ADMIN" + uniqueId + "@gmail.com",
+  username: "ADMIN111" ,
+  password: "ADMIN" + "123",
+  email: "ADMIN" + "@gmail.com",
 };
 
 const createAdminUser = async () => {
